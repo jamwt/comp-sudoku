@@ -14,7 +14,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
-const root = resolve(dirname(new URL(import.meta.url).pathname), "..");
+const root = resolve(import.meta.dirname, "..");
 const require = createRequire(join(root, "package.json"));
 const convexMain = join(
   dirname(require.resolve("convex/package.json")),
