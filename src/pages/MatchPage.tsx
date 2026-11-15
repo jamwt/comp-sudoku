@@ -557,7 +557,7 @@ function ResultOverlay({
                 {p.name}
               </span>
               <span className="tabular-nums">
-                {p.cells} cells · {p.wrong} wrong
+                {p.cells} {p.cells === 1 ? "cell" : "cells"} · {p.wrong} wrong
               </span>
             </div>
           ))}
