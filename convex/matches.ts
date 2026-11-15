@@ -246,6 +246,7 @@ export const enter = mutation({
  * The one server path for a digit entry, used by humans and bots alike:
  * rate limit, engine validation against the stored solution, lockout, and
  * the claim race. A claim wakes any bot in the match that needs to replan.
+ * A bot plays many matches at once, so its entries are limited per match.
  */
 export async function submitEntry(
   ctx: MutationCtx,
@@ -256,7 +257,9 @@ export async function submitEntry(
 ): Promise<EntryResult> {
   if (match.status !== "active") return { kind: "not_active" };
   const playerId = match.participants[slot].playerId;
-  const limit = await rateLimiter.limit(ctx, "enterDigit", { key: playerId });
+  const player = await ctx.db.get("players", playerId);
+  const key = player?.kind === "bot" ? `${playerId}:${match._id}` : playerId;
+  const limit = await rateLimiter.limit(ctx, "enterDigit", { key });
   if (!limit.ok) return { kind: "rate_limited", retryAfter: limit.retryAfter };
   const puzzle = await ctx.db.get("puzzles", match.puzzleId);
   if (!puzzle) throw new Error(`Puzzle ${match.puzzleId} missing`);

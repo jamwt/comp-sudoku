@@ -12,6 +12,7 @@ import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 import { BOTS, RULES } from "./gameConfig";
 import { countEmpty, emptyOwners } from "./lib/engine";
+import { rateLimiter as entryLimiter } from "./rateLimits";
 
 const modules = import.meta.glob("./**/*.ts");
 
@@ -278,6 +279,41 @@ describe("bots", () => {
     const unstuck = (await runs(t, matchId))[0];
     expect(unstuck.status).toBe("thinking");
     expect(unstuck.plan).toBeUndefined();
+  });
+
+  test("a bot's entry budget is per match, not shared across its matches", async () => {
+    const t = setup();
+    await addPuzzle(t);
+    const ada = await botId(t, "ada");
+    const alice = await signUp(t, "alice");
+    vi.useFakeTimers();
+    const matchId = await alice.mutation(api.bots.startPractice, {
+      botId: ada,
+    });
+    if (matchId === null) throw new Error("pool empty");
+    vi.advanceTimersByTime(RULES.countdownMs + 100);
+    const [run] = await runs(t, matchId);
+    await t.run(async (ctx) => {
+      const drained = await entryLimiter.limit(ctx, "enterDigit", {
+        key: ada,
+        count: RULES.entryRateLimit.capacity,
+      });
+      expect(drained.ok).toBe(true);
+      await ctx.db.patch("botRuns", run._id, {
+        seq: 100,
+        plan: {
+          cell: 0,
+          digit: 5,
+          dueAt: Date.now(),
+          intent: "deduce",
+          technique: "hiddenSingle",
+        },
+      });
+    });
+    await t.mutation(internal.bots.step, { runId: run._id, seq: 100 });
+    const view = await alice.query(api.matches.get, { matchId });
+    expect(view?.board[0]).toBe("5");
+    expect(view?.participants[1].cells).toBe(1);
   });
 
   test("practice requires a real bot", async () => {
