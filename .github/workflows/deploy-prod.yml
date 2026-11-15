@@ -1,0 +1,56 @@
+name: Deploy production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy-prod:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PROD_DEPLOY_KEY }}
+    steps:
+      - name: Check for the production deploy key
+        id: key
+        run: |
+          if [ -z "$CONVEX_DEPLOY_KEY" ]; then
+            echo "::notice::CONVEX_PROD_DEPLOY_KEY secret is not set; skipping the production deploy."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.key.outputs.present == 'true'
+        uses: actions/checkout@v4
+      - if: steps.key.outputs.present == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - if: steps.key.outputs.present == 'true'
+        run: npm ci
+      - if: steps.key.outputs.present == 'true'
+        run: npm test
+      - name: Deploy the backend and build the frontend against it
+        if: steps.key.outputs.present == 'true'
+        run: |
+          npx convex deploy \
+            --typecheck enable \
+            --cmd 'npx vite build' \
+            --cmd-url-env-var-name VITE_CONVEX_URL
+      - name: Seed or top up the puzzle pool
+        if: steps.key.outputs.present == 'true'
+        run: npx convex run puzzles:seed
+      - name: Upload the frontend
+        if: steps.key.outputs.present == 'true'
+        run: |
+          set -o pipefail
+          npm run upload:static | tee upload.log
+          url=$(grep -o 'https://[^ ]*\.convex\.site' upload.log | tail -1)
+          echo "### Production: $url" >> "$GITHUB_STEP_SUMMARY"

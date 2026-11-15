@@ -85,4 +85,5 @@ export declare const components: {
   presence: import("@convex-dev/presence/_generated/component.js").ComponentApi<"presence">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
   puzzleWorkpool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"puzzleWorkpool">;
+  staticHosting: import("@convex-dev/static-hosting/_generated/component.js").ComponentApi<"staticHosting">;
 };

@@ -22,26 +22,42 @@ Built with Vite, React, TypeScript, and [Convex](https://convex.dev).
 The puzzle solution stays in the `puzzles` table. No query returns it; every
 entry is checked against it inside a mutation.
 
-## Deploying a backend
+## Deploying
 
-This project uses Convex cloud deployments. With a **preview deploy key** in
-`CONVEX_DEPLOY_KEY`, deploy the current branch, seed its puzzle pool, and
-write the deployment URL for Vite:
+This project uses Convex cloud deployments. The frontend is hosted on the same
+deployment by [`@convex-dev/static-hosting`](https://www.convex.dev/components/static-hosting),
+which serves `dist/` at `https://<deployment>.convex.site`. The component owns
+the site root; any HTTP routes the app adds in `convex/http.ts` are served
+under `/api` (`defineApp({ httpPrefix: "/api" })` in `convex/convex.config.ts`).
+
+### A playable preview from your machine
+
+With a **preview deploy key** in `CONVEX_DEPLOY_KEY`, one command deploys the
+backend to a preview named after the current branch, seeds its puzzle pool,
+builds the frontend against it, uploads `dist/`, and prints the playable URL:
 
 ```sh
 npm ci
+npm run deploy:preview
+```
+
+Set `PREVIEW=<name>` to pick another preview name. The command reuses the
+preview and keeps its data. `npm run upload:static -- <preview-name>` uploads
+an existing `dist/` without redeploying. It wraps the static-hosting CLI,
+which can't target a preview deployment by itself.
+
+`puzzles:seed` fills the pool; a cron tops it up every few minutes, and you can
+run it by hand with `npx convex run --preview-name <branch> puzzles:seed`.
+
+For a local Vite dev server against the preview instead:
+
+```sh
 npx convex deploy \
-  --preview-create "$(git branch --show-current)" \
-  --preview-run puzzles:seed \
+  --preview-name "$(git branch --show-current)" \
   --cmd 'echo "VITE_CONVEX_URL=$VITE_CONVEX_URL" > .env.local' \
   --cmd-url-env-var-name VITE_CONVEX_URL
 npx vite
 ```
-
-`--preview-create` recreates the preview from scratch. To push code changes to
-the same preview and keep its data, use `--preview-name <branch>` instead.
-`puzzles:seed` fills the pool; a cron tops it up every few minutes, and you can
-run it by hand with `npx convex run --preview-name <branch> puzzles:seed`.
 
 With a **dev deployment** (a Convex account and `npx convex dev`), run
 `npm run dev`, which starts `convex dev` and Vite together, and run
@@ -49,6 +65,21 @@ With a **dev deployment** (a Convex account and `npx convex dev`), run
 
 `convex/_generated` is checked in, because code generation needs a
 deployment and CI only has a deploy key.
+
+### Pull request previews
+
+CI's `deploy-preview` job recreates a preview named after the branch (wiping
+its data), seeds it, uploads the frontend, and posts the
+`https://<preview>.convex.site` URL in the job summary and as a pull request
+comment. It skips with a notice when the `CONVEX_DEPLOY_KEY` repository secret
+is empty.
+
+### Production
+
+The `Deploy production` workflow runs on every push to `main`. It runs the
+tests, deploys the backend, tops up the puzzle pool, and uploads the frontend,
+using the `CONVEX_PROD_DEPLOY_KEY` repository secret (a production deploy
+key). It skips with a notice when that secret is empty.
 
 ## Checks
 
@@ -59,8 +90,7 @@ npm test
 ```
 
 CI runs all three on every push and pull request. On pull requests it also
-deploys a Convex preview named after the branch and builds the frontend
-against it, when the `CONVEX_DEPLOY_KEY` repository secret is set.
+deploys a playable preview (see [Pull request previews](#pull-request-previews)).
 
 ## Controls
 
