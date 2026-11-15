@@ -1,7 +1,9 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { ThemeProvider } from "next-themes";
-import { ConvexProvider, ConvexReactClient } from "convex/react";
+import { ConvexReactClient } from "convex/react";
+import { ConvexAuthProvider } from "@convex-dev/auth/react";
+import { api } from "../convex/_generated/api";
 import App from "./App.tsx";
 import "./index.css";
 
@@ -10,9 +12,9 @@ const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ThemeProvider attribute="class">
-      <ConvexProvider client={convex}>
+      <ConvexAuthProvider client={convex} api={api.auth}>
         <App />
-      </ConvexProvider>
+      </ConvexAuthProvider>
     </ThemeProvider>
   </React.StrictMode>,
 );

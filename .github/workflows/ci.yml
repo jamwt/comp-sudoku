@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+
+  deploy-preview:
+    needs: check
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+      BRANCH: ${{ github.head_ref }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Deploy Convex preview and build the frontend against it
+        run: |
+          if [ -z "$CONVEX_DEPLOY_KEY" ]; then
+            echo "::notice::CONVEX_DEPLOY_KEY secret is not set; skipping the preview deploy."
+            exit 0
+          fi
+          npx convex deploy \
+            --preview-create "$BRANCH" \
+            --preview-run puzzles:seed \
+            --cmd 'npx vite build' \
+            --cmd-url-env-var-name VITE_CONVEX_URL
