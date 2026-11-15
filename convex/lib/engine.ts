@@ -180,13 +180,16 @@ export type PresenceInfo = {
   online: boolean;
   /** When the player last went offline; null if never seen in the room. */
   lastDisconnected: number | null;
+  /** Bots never idle or disconnect, so they never forfeit. */
+  exempt?: boolean;
 };
 
 /**
  * Decide whether anyone forfeits at `now`, and when to check again.
  * A player forfeits after `idleForfeitMs` without an entry or note, or after
  * `disconnectForfeitMs` offline. A player never seen online counts as offline
- * since the match started.
+ * since the match started. Exempt players never forfeit; when nobody can,
+ * `nextCheckAt` is Infinity.
  */
 export function checkForfeit(
   state: BoardState,
@@ -198,6 +201,7 @@ export function checkForfeit(
   const deadlines = state.participants.map((p, i) => {
     const idleAt = Math.max(p.lastActiveAt, startsAt) + rules.idleForfeitMs;
     const info = presence[i];
+    if (info.exempt) return { at: Infinity, reason: "forfeit_idle" as const };
     if (info.online) return { at: idleAt, reason: "forfeit_idle" as const };
     const offlineSince = Math.max(info.lastDisconnected ?? startsAt, startsAt);
     const disconnectAt = offlineSince + rules.disconnectForfeitMs;

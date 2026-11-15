@@ -17,6 +17,7 @@ import {
   type MatchResult,
   type Slot,
 } from "./lib/engine";
+import { botProfile, wakeBots } from "./botRuns";
 import { currentPlayer, requirePlayer } from "./players";
 import { drawPuzzle } from "./puzzles";
 import { presence } from "./presence";
@@ -44,6 +45,10 @@ const vMatchView = v.object({
       wrong: v.number(),
       lockedUntil: v.number(),
       lastActiveAt: v.number(),
+      bot: v.union(
+        v.null(),
+        v.object({ level: v.string(), rating: v.number() }),
+      ),
     }),
   ),
   you: v.union(v.literal(0), v.literal(1), v.null()),
@@ -94,7 +99,14 @@ export const get = query({
     const participants = await Promise.all(
       match.participants.map(async (p) => {
         const player = await ctx.db.get("players", p.playerId);
-        return { ...p, name: player?.name ?? "Unknown" };
+        const profile = player && botProfile(player);
+        return {
+          ...p,
+          name: player?.name ?? "Unknown",
+          bot: profile
+            ? { level: profile.level, rating: player.rating ?? profile.rating }
+            : null,
+        };
       }),
     );
     const index = match.participants.findIndex((p) => p.playerId === me?._id);
@@ -147,7 +159,7 @@ export const create = mutation({
   },
 });
 
-function newParticipant(playerId: Id<"players">, now: number) {
+export function newParticipant(playerId: Id<"players">, now: number) {
   return {
     playerId,
     score: 0,
@@ -199,7 +211,7 @@ async function loadActive(ctx: MutationCtx, matchId: Id<"matches">) {
   return { player, match, slot: index as Slot };
 }
 
-async function finish(
+export async function finish(
   ctx: MutationCtx,
   match: Doc<"matches">,
   result: MatchResult,
@@ -225,51 +237,65 @@ export const enter = mutation({
   args: { matchId: v.id("matches"), cell: v.number(), digit: v.number() },
   returns: vEntryOutcome,
   handler: async (ctx, { matchId, cell, digit }): Promise<EntryResult> => {
-    const { player, match, slot } = await loadActive(ctx, matchId);
-    if (match.status !== "active") return { kind: "not_active" };
-    const limit = await rateLimiter.limit(ctx, "enterDigit", {
-      key: player._id,
-    });
-    if (!limit.ok)
-      return { kind: "rate_limited", retryAfter: limit.retryAfter };
-    const puzzle = await ctx.db.get("puzzles", match.puzzleId);
-    if (!puzzle) throw new Error(`Puzzle ${match.puzzleId} missing`);
-    const now = Date.now();
-    const { outcome, next } = applyEntry(
-      match,
-      puzzle.solution,
-      slot,
-      cell,
-      digit,
-      now,
-      match.startsAt ?? now,
-      RULES,
-    );
-    if (next !== match) {
-      await ctx.db.patch("matches", matchId, {
-        board: next.board,
-        owners: next.owners,
-        participants: match.participants.map((p, i) => ({
-          ...next.participants[i],
-          playerId: p.playerId,
-        })),
-      });
-    }
-    switch (outcome.kind) {
-      case "claimed":
-        if (outcome.result) await finish(ctx, match, outcome.result);
-        return { kind: "claimed", cell, digit, ended: outcome.result !== null };
-      case "wrong":
-      case "locked":
-        return {
-          ...outcome,
-          lockoutMs: outcome.lockedUntil - now,
-        };
-      default:
-        return outcome;
-    }
+    const { match, slot } = await loadActive(ctx, matchId);
+    return await submitEntry(ctx, match, slot, cell, digit);
   },
 });
+
+/**
+ * The one server path for a digit entry, used by humans and bots alike:
+ * rate limit, engine validation against the stored solution, lockout, and
+ * the claim race. A claim wakes any bot in the match that needs to replan.
+ */
+export async function submitEntry(
+  ctx: MutationCtx,
+  match: Doc<"matches">,
+  slot: Slot,
+  cell: number,
+  digit: number,
+): Promise<EntryResult> {
+  if (match.status !== "active") return { kind: "not_active" };
+  const playerId = match.participants[slot].playerId;
+  const limit = await rateLimiter.limit(ctx, "enterDigit", { key: playerId });
+  if (!limit.ok) return { kind: "rate_limited", retryAfter: limit.retryAfter };
+  const puzzle = await ctx.db.get("puzzles", match.puzzleId);
+  if (!puzzle) throw new Error(`Puzzle ${match.puzzleId} missing`);
+  const now = Date.now();
+  const { outcome, next } = applyEntry(
+    match,
+    puzzle.solution,
+    slot,
+    cell,
+    digit,
+    now,
+    match.startsAt ?? now,
+    RULES,
+  );
+  if (next !== match) {
+    await ctx.db.patch("matches", match._id, {
+      board: next.board,
+      owners: next.owners,
+      participants: match.participants.map((p, i) => ({
+        ...next.participants[i],
+        playerId: p.playerId,
+      })),
+    });
+  }
+  switch (outcome.kind) {
+    case "claimed":
+      if (outcome.result) await finish(ctx, match, outcome.result);
+      else await wakeBots(ctx, match._id, playerId, cell);
+      return { kind: "claimed", cell, digit, ended: outcome.result !== null };
+    case "wrong":
+    case "locked":
+      return {
+        ...outcome,
+        lockoutMs: outcome.lockedUntil - now,
+      };
+    default:
+      return outcome;
+  }
+}
 
 /** Resign an active match. It counts as a loss. */
 export const resign = mutation({
@@ -292,7 +318,12 @@ export const checkForfeits = internalMutation({
     const match = await ctx.db.get("matches", matchId);
     if (!match || match.status !== "active") return null;
     const room = await presence.listRoom(ctx, matchId);
-    const presenceInfo = match.participants.map((p) => {
+    const players = await Promise.all(
+      match.participants.map((p) => ctx.db.get("players", p.playerId)),
+    );
+    const presenceInfo = match.participants.map((p, i) => {
+      if (players[i]?.kind === "bot")
+        return { online: true, lastDisconnected: null, exempt: true };
       const entry = room.find((r) => r.userId === p.playerId);
       return entry
         ? {
@@ -311,6 +342,10 @@ export const checkForfeits = internalMutation({
     );
     if (result) {
       await finish(ctx, { ...match, forfeitCheckId: undefined }, result);
+      return null;
+    }
+    if (nextCheckAt === Infinity) {
+      await ctx.db.patch("matches", matchId, { forfeitCheckId: undefined });
       return null;
     }
     const forfeitCheckId = await ctx.scheduler.runAt(

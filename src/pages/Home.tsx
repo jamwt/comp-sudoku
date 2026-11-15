@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { RULES, TIERS, type Tier } from "../../convex/gameConfig";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,16 +19,23 @@ export function Home() {
   const me = useQuery(api.players.me);
   const rename = useMutation(api.players.rename);
   const create = useMutation(api.matches.create);
+  const startPractice = useMutation(api.bots.startPractice);
+  const bots = useQuery(api.bots.list);
+  const [botId, setBotId] = useState<Id<"players"> | null>(null);
+  const selectedBot = botId ?? bots?.[0]?._id ?? null;
   const [tier, setTier] = useState<Tier>(RULES.defaultTier);
   const [draftName, setDraftName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
-  async function onCreate() {
+  async function onCreate(practice: boolean) {
     setError(null);
     setCreating(true);
     try {
-      const id = await create({ tier });
+      const id =
+        practice && selectedBot
+          ? await startPractice({ botId: selectedBot, tier })
+          : await create({ tier });
       if (id === null) {
         setError("The puzzle pool is refilling. Try again in a few seconds.");
         setCreating(false);
@@ -105,12 +113,56 @@ export function Home() {
         <Button
           className="w-full"
           size="lg"
-          onClick={() => void onCreate()}
+          onClick={() => void onCreate(false)}
           disabled={creating}
         >
           {creating ? "Creating…" : "Create match"}
         </Button>
         {error && <p className="text-sm text-destructive">{error}</p>}
+      </section>
+
+      <section className="space-y-3" data-testid="practice">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold">Practice vs AI</h2>
+          <p className="text-sm text-muted-foreground">
+            Unrated. Bots deduce like people do and make mistakes too. Uses the
+            difficulty above.
+          </p>
+        </div>
+        {bots === undefined ? null : bots.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No bots are set up.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {bots.map((b) => (
+              <button
+                key={b._id}
+                type="button"
+                onClick={() => setBotId(b._id)}
+                data-testid={`bot-${b.name}`}
+                className={cn(
+                  "rounded-md border px-3 py-2 text-left text-sm transition-colors",
+                  b._id === selectedBot
+                    ? "border-primary bg-accent"
+                    : "hover:bg-accent/60",
+                )}
+              >
+                <span className="block font-medium">{b.name}</span>
+                <span className="block text-xs text-muted-foreground">
+                  {b.level} · {b.rating}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+        <Button
+          className="w-full"
+          size="lg"
+          variant="secondary"
+          onClick={() => void onCreate(true)}
+          disabled={creating || selectedBot === null}
+        >
+          Practice vs {bots?.find((b) => b._id === selectedBot)?.name ?? "AI"}
+        </Button>
       </section>
     </div>
   );

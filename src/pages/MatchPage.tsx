@@ -369,6 +369,11 @@ function Scoreboard({ match }: { match: MatchView }) {
                 {i === match.you && (
                   <span className="text-muted-foreground"> (you)</span>
                 )}
+                {p.bot && (
+                  <span className="ml-1.5 rounded bg-muted px-1 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
+                    AI
+                  </span>
+                )}
               </span>
             </div>
             <span
@@ -441,6 +446,17 @@ function PresenceStatus({ match, you }: { match: MatchView; you: Slot }) {
   const online =
     states?.find((s) => s.userId === opponent?.playerId)?.online ?? false;
   if (!opponent) return null;
+  if (opponent.bot) {
+    return (
+      <div
+        className="flex items-center gap-2 rounded-md border px-3 py-2"
+        data-testid="opponent-presence"
+      >
+        <span className="h-2 w-2 rounded-full bg-sky-500" />
+        {opponent.name} is an AI · {opponent.bot.level} · {opponent.bot.rating}
+      </div>
+    );
+  }
   return (
     <div
       className="flex items-center gap-2 rounded-md border px-3 py-2"

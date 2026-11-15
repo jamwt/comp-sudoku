@@ -315,6 +315,23 @@ describe("checkForfeit", () => {
   const online = { online: true, lastDisconnected: null };
   const base = stateFor(puzzleWithEmpty([0, 1, 2]));
 
+  test("exempt players (bots) never forfeit; the other player still can", () => {
+    const bot = { online: true, lastDisconnected: null, exempt: true };
+    const state = {
+      ...base,
+      participants: [
+        participant({ lastActiveAt: START }),
+        participant({ lastActiveAt: START }),
+      ],
+    };
+    const later = START + RULES.idleForfeitMs + 1;
+    const r = checkForfeit(state, [online, bot], START, later, rules);
+    expect(r.result).toEqual({ winner: 1, reason: "forfeit_idle" });
+    const both = checkForfeit(state, [bot, bot], START, later * 10, rules);
+    expect(both.result).toBeNull();
+    expect(both.nextCheckAt).toBe(Infinity);
+  });
+
   test("nobody forfeits while both are active; next check is the earliest idle deadline", () => {
     const state = {
       ...base,

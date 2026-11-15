@@ -48,7 +48,7 @@ jobs:
           fi
           npx convex deploy \
             --preview-create "$BRANCH" \
-            --preview-run puzzles:seed \
+            --preview-run init \
             --cmd 'npx vite build' \
             --cmd-url-env-var-name VITE_CONVEX_URL
           npm run upload:static -- "$BRANCH" | tee upload.log
