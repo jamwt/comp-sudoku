@@ -28,6 +28,11 @@ export function Home() {
     setCreating(true);
     try {
       const id = await create({ tier });
+      if (id === null) {
+        setError("The puzzle pool is refilling. Try again in a few seconds.");
+        setCreating(false);
+        return;
+      }
       navigate(matchPath(id));
     } catch (e) {
       setError(

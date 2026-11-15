@@ -56,6 +56,7 @@ async function startMatch(t: T) {
   const bob = await signUp(t, "bob");
   vi.useFakeTimers();
   const matchId = await alice.mutation(api.matches.create, { tier: "easy" });
+  if (matchId === null) throw new Error("pool empty");
   await bob.mutation(api.matches.join, { matchId });
   vi.advanceTimersByTime(RULES.countdownMs + CLOCK_SLACK_MS);
   return { alice, bob, matchId };
@@ -86,6 +87,20 @@ describe("matches", () => {
     expect(statuses).toEqual(["used"]);
   });
 
+  test("an empty pool returns null and keeps the scheduled refill", async () => {
+    const t = setup();
+    const alice = await signUp(t, "alice");
+    expect(
+      await alice.mutation(api.matches.create, { tier: "hard" }),
+    ).toBeNull();
+    const scheduled = await t.run(async (ctx) =>
+      (await ctx.db.system.query("_scheduled_functions").take(10)).map(
+        (f) => f.name,
+      ),
+    );
+    expect(scheduled).toContain("puzzles:topUp");
+  });
+
   test("entries before the countdown ends are rejected", async () => {
     const t = setup();
     await t.run(async (ctx) => {
@@ -102,6 +117,7 @@ describe("matches", () => {
     const bob = await signUp(t, "bob");
     vi.useFakeTimers();
     const matchId = await alice.mutation(api.matches.create, {});
+    if (matchId === null) throw new Error("pool empty");
     await bob.mutation(api.matches.join, { matchId });
     const r = await alice.mutation(api.matches.enter, {
       matchId,

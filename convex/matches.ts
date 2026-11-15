@@ -116,10 +116,14 @@ export const get = query({
   },
 });
 
-/** Create a match from the puzzle pool and wait for an opponent. */
+/**
+ * Create a match from the puzzle pool and wait for an opponent. Returns null
+ * when the tier's pool is empty; returning instead of throwing lets the refill
+ * job `drawPuzzle` scheduled commit.
+ */
 export const create = mutation({
   args: { tier: v.optional(vTier) },
-  returns: v.id("matches"),
+  returns: v.union(v.id("matches"), v.null()),
   handler: async (ctx, args) => {
     const player = await requirePlayer(ctx);
     await rateLimiter.limit(ctx, "createMatch", {
@@ -128,11 +132,7 @@ export const create = mutation({
     });
     const tier = args.tier ?? RULES.defaultTier;
     const puzzle = await drawPuzzle(ctx, tier);
-    if (puzzle === null) {
-      throw new ConvexError(
-        "The puzzle pool is refilling. Try again in a few seconds.",
-      );
-    }
+    if (puzzle === null) return null;
     const now = Date.now();
     return await ctx.db.insert("matches", {
       status: "waiting",
