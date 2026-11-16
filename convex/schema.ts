@@ -28,10 +28,17 @@ export default defineSchema({
   users: defineTable({}),
 
   players: defineTable({
-    kind: v.literal("human"),
-    userId: v.id("users"),
+    kind: v.union(v.literal("human"), v.literal("bot")),
+    /** Set for humans; bots have no auth user. */
+    userId: v.optional(v.id("users")),
     name: v.string(),
-  }).index("by_userId", ["userId"]),
+    /** Starting Elo rating for bots, from `BOTS` in gameConfig. */
+    rating: v.optional(v.number()),
+    /** Key into `BOTS` in gameConfig; set for bots only. */
+    botProfile: v.optional(v.string()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_kind_and_rating", ["kind", "rating"]),
 
   puzzles: defineTable({
     givens: v.string(),
@@ -62,6 +69,32 @@ export default defineSchema({
     ),
     forfeitCheckId: v.optional(v.id("_scheduled_functions")),
   }),
+
+  /** One per bot per active match: what the bot plans to enter, and when. */
+  botRuns: defineTable({
+    matchId: v.id("matches"),
+    playerId: v.id("players"),
+    status: v.union(v.literal("thinking"), v.literal("stuck")),
+    /** Bumped on every reschedule; a scheduled step with an older seq is stale. */
+    seq: v.number(),
+    plan: v.optional(
+      v.object({
+        cell: v.number(),
+        digit: v.number(),
+        dueAt: v.number(),
+        intent: v.union(
+          v.literal("deduce"),
+          v.literal("blunder"),
+          v.literal("guess"),
+        ),
+        technique: v.string(),
+      }),
+    ),
+    /** This match's think-time multiplier for the bot; see BOT_RULES.formSigma. */
+    form: v.number(),
+    /** Guesses the server rejected, which the brain eliminates. */
+    excluded: v.array(v.object({ cell: v.number(), digit: v.number() })),
+  }).index("by_matchId_and_playerId", ["matchId", "playerId"]),
 
   notes: defineTable({
     matchId: v.id("matches"),

@@ -11,7 +11,8 @@
     "test": "vitest run",
     "preview": "vite preview",
     "upload:static": "node scripts/upload-static.mjs",
-    "deploy:preview": "convex deploy --typecheck enable --preview-name \"${PREVIEW:-$(git branch --show-current)}\" --preview-run puzzles:seed --cmd \"vite build\" --cmd-url-env-var-name VITE_CONVEX_URL && node scripts/upload-static.mjs \"$PREVIEW\""
+    "deploy:preview": "convex deploy --typecheck enable --preview-name \"${PREVIEW:-$(git branch --show-current)}\" --preview-run init --cmd \"vite build\" --cmd-url-env-var-name VITE_CONVEX_URL && node scripts/upload-static.mjs \"$PREVIEW\"",
+    "calibrate": "CALIBRATE=1 vitest run convex/lib/botSim.test.ts"
   },
   "dependencies": {
     "@convex-dev/auth": "^2.0.0",

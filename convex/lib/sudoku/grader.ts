@@ -289,3 +289,77 @@ export function gradePuzzle(givens: Grid): {
   const hardest = solved ? STEPS[hardestRank].technique : "unsolved";
   return { tier: TECHNIQUE_TIER[hardest], hardest, solved, counts };
 }
+
+export type Placement = { cell: number; digit: number; technique: Technique };
+
+/**
+ * What a solver that knows only `techniques` can fill next on `board`.
+ * Applies the allowed elimination techniques, easiest first, until at least
+ * one naked or hidden single appears, and returns every single available at
+ * that point. Each placement's technique is the hardest one the deduction
+ * needed. `excluded` lists digits already known to be wrong in a cell.
+ * `candidates` are the remaining candidate masks after those eliminations.
+ */
+export function findPlacements(
+  board: Grid,
+  techniques: readonly Technique[],
+  excluded: readonly { cell: number; digit: number }[] = [],
+): { placements: Placement[]; candidates: number[] } {
+  const s: State = {
+    values: new Array(81).fill(0),
+    cands: new Array(81).fill(ALL),
+  };
+  board.forEach((d, i) => {
+    if (d !== 0) place(s, i, d);
+  });
+  for (const { cell, digit } of excluded) {
+    if (s.values[cell] === 0) s.cands[cell] &= ~(1 << (digit - 1));
+  }
+  const allowed = new Set(techniques);
+  const eliminations = STEPS.filter(
+    (step) =>
+      allowed.has(step.technique) &&
+      step.technique !== "nakedSingle" &&
+      step.technique !== "hiddenSingle",
+  );
+  const rank = (t: Technique) =>
+    STEPS.findIndex((step) => step.technique === t);
+  let hardest = -1;
+
+  for (;;) {
+    if (s.values.some((v, i) => v === 0 && s.cands[i] === 0)) {
+      return { placements: [], candidates: s.cands.slice() };
+    }
+    const found = new Map<number, Placement>();
+    const add = (cell: number, digit: number, single: Technique) => {
+      if (found.has(cell)) return;
+      const technique =
+        rank(single) >= hardest ? single : STEPS[hardest].technique;
+      found.set(cell, { cell, digit, technique });
+    };
+    if (allowed.has("nakedSingle")) {
+      for (let i = 0; i < 81; i++) {
+        if (s.values[i] === 0 && popcount(s.cands[i]) === 1) {
+          add(i, 32 - Math.clz32(s.cands[i]), "nakedSingle");
+        }
+      }
+    }
+    if (allowed.has("hiddenSingle")) {
+      for (const unit of UNITS) {
+        for (let d = 1; d <= 9; d++) {
+          const bit = 1 << (d - 1);
+          const cells = unit.filter(
+            (c) => s.values[c] === 0 && s.cands[c] & bit,
+          );
+          if (cells.length === 1) add(cells[0], d, "hiddenSingle");
+        }
+      }
+    }
+    if (found.size > 0) {
+      return { placements: [...found.values()], candidates: s.cands.slice() };
+    }
+    const step = eliminations.find((e) => e.run(s));
+    if (!step) return { placements: [], candidates: s.cands.slice() };
+    hardest = Math.max(hardest, rank(step.technique));
+  }
+}

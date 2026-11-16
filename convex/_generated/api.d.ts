@@ -9,8 +9,13 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as botRuns from "../botRuns.js";
+import type * as bots from "../bots.js";
 import type * as crons from "../crons.js";
 import type * as gameConfig from "../gameConfig.js";
+import type * as init from "../init.js";
+import type * as lib_botBrain from "../lib/botBrain.js";
+import type * as lib_botSim from "../lib/botSim.js";
 import type * as lib_engine from "../lib/engine.js";
 import type * as lib_sudoku_generator from "../lib/sudoku/generator.js";
 import type * as lib_sudoku_grader from "../lib/sudoku/grader.js";
@@ -34,8 +39,13 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  botRuns: typeof botRuns;
+  bots: typeof bots;
   crons: typeof crons;
   gameConfig: typeof gameConfig;
+  init: typeof init;
+  "lib/botBrain": typeof lib_botBrain;
+  "lib/botSim": typeof lib_botSim;
   "lib/engine": typeof lib_engine;
   "lib/sudoku/generator": typeof lib_sudoku_generator;
   "lib/sudoku/grader": typeof lib_sudoku_grader;
