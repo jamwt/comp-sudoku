@@ -1,6 +1,6 @@
 import { RateLimiter } from "@convex-dev/rate-limiter";
 import { components } from "./_generated/api";
-import { RULES } from "./gameConfig";
+import { MATCHMAKING, RULES } from "./gameConfig";
 
 const bucket = (r: { rate: number; periodMs: number; capacity: number }) => ({
   kind: "token bucket" as const,
@@ -13,4 +13,5 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   enterDigit: bucket(RULES.entryRateLimit),
   editNote: bucket(RULES.noteRateLimit),
   createMatch: bucket(RULES.createMatchRateLimit),
+  joinQueue: bucket(MATCHMAKING.joinRateLimit),
 });

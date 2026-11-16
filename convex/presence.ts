@@ -3,9 +3,17 @@ import { Presence } from "@convex-dev/presence";
 import { components } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import { requirePlayer } from "./players";
+import type { Id } from "./_generated/dataModel";
 
-/** Presence rooms are match ids; presence users are player ids. */
+/**
+ * Presence rooms are match ids, plus one queue room per player while they wait
+ * for a ranked match; presence users are player ids.
+ */
 export const presence = new Presence(components.presence);
+
+export function queueRoom(playerId: Id<"players">) {
+  return `queue:${playerId}`;
+}
 
 export const heartbeat = mutation({
   args: {
@@ -18,6 +26,9 @@ export const heartbeat = mutation({
   handler: async (ctx, { roomId, userId, sessionId, interval }) => {
     const player = await requirePlayer(ctx);
     if (userId !== player._id) throw new ConvexError("Presence user mismatch");
+    if (roomId === queueRoom(player._id)) {
+      return await presence.heartbeat(ctx, roomId, userId, sessionId, interval);
+    }
     const matchId = ctx.db.normalizeId("matches", roomId);
     const match = matchId && (await ctx.db.get("matches", matchId));
     if (!match || !match.participants.some((p) => p.playerId === player._id)) {

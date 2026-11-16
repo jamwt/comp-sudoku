@@ -68,6 +68,53 @@ export default defineSchema({
       v.object({ winner: v.union(v.number(), v.null()), reason: vEndReason }),
     ),
     forfeitCheckId: v.optional(v.id("_scheduled_functions")),
+    /** Queue matches are rated; invite-link matches leave this unset (casual). */
+    rated: v.optional(v.boolean()),
+  }),
+
+  /** Live Elo per player. A player with no row has the initial rating and no games. */
+  ratings: defineTable({
+    playerId: v.id("players"),
+    rating: v.number(),
+    ratedGames: v.number(),
+  })
+    .index("by_playerId", ["playerId"])
+    .index("by_rating", ["rating"]),
+
+  /** One row per player per rated match, for rating charts. */
+  ratingHistory: defineTable({
+    playerId: v.id("players"),
+    matchId: v.id("matches"),
+    opponentId: v.id("players"),
+    ratingBefore: v.number(),
+    ratingAfter: v.number(),
+    delta: v.number(),
+    k: v.number(),
+    /** 1 win, 0 loss, 0.5 draw. */
+    score: v.number(),
+  })
+    .index("by_playerId", ["playerId"])
+    .index("by_matchId", ["matchId"]),
+
+  /** The ranked queue: at most one row per player. */
+  queue: defineTable({
+    playerId: v.id("players"),
+    status: v.union(
+      v.literal("waiting"),
+      v.literal("matched"),
+      v.literal("dropped"),
+    ),
+    /** Rating when the player joined; pairing uses it. */
+    rating: v.number(),
+    joinedAt: v.number(),
+    matchId: v.optional(v.id("matches")),
+  })
+    .index("by_playerId", ["playerId"])
+    .index("by_status_and_joinedAt", ["status", "joinedAt"]),
+
+  /** Singleton holding the pending pairing pass, so only one sweep chain runs. */
+  queueSweep: defineTable({
+    scheduledId: v.optional(v.id("_scheduled_functions")),
   }),
 
   /** One per bot per active match: what the bot plans to enter, and when. */

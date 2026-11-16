@@ -15,6 +15,7 @@
     "calibrate": "CALIBRATE=1 vitest run convex/lib/botSim.test.ts"
   },
   "dependencies": {
+    "@convex-dev/aggregate": "^0.3.4",
     "@convex-dev/auth": "^2.0.0",
     "@convex-dev/presence": "^0.4.0",
     "@convex-dev/rate-limiter": "^0.4.3",

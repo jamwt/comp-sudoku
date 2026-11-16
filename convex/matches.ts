@@ -7,7 +7,7 @@ import {
   type MutationCtx,
 } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { RULES } from "./gameConfig";
+import { RULES, type Tier } from "./gameConfig";
 import {
   applyEntry,
   checkForfeit,
@@ -21,6 +21,7 @@ import { botProfile, wakeBots } from "./botRuns";
 import { currentPlayer, requirePlayer } from "./players";
 import { drawPuzzle } from "./puzzles";
 import { presence } from "./presence";
+import { applyRatedResult, ratingChangesFor } from "./ratings";
 import { rateLimiter } from "./rateLimits";
 import { vEndReason, vTier } from "./schema";
 
@@ -57,6 +58,16 @@ const vMatchView = v.object({
   result: v.union(
     v.null(),
     v.object({ winner: v.union(v.number(), v.null()), reason: vEndReason }),
+  ),
+  rated: v.boolean(),
+  /** Each player's rating change once a rated match ends; empty otherwise. */
+  ratingChanges: v.array(
+    v.object({
+      playerId: v.id("players"),
+      before: v.number(),
+      after: v.number(),
+      delta: v.number(),
+    }),
   ),
 });
 export type MatchView = Infer<typeof vMatchView>;
@@ -124,6 +135,11 @@ export const get = query({
       startsAt: match.startsAt ?? null,
       endedAt: match.endedAt ?? null,
       result: match.result ?? null,
+      rated: match.rated ?? false,
+      ratingChanges:
+        match.status === "finished" && match.rated
+          ? await ratingChangesFor(ctx, match._id)
+          : [],
     };
   },
 });
@@ -187,10 +203,10 @@ export const join = mutation({
       ...match.participants,
       newParticipant(player._id, startsAt),
     ].map((p) => ({ ...p, lastActiveAt: startsAt }));
-    const forfeitCheckId = await ctx.scheduler.runAt(
-      startsAt + Math.min(RULES.idleForfeitMs, RULES.disconnectForfeitMs),
-      internal.matches.checkForfeits,
-      { matchId },
+    const forfeitCheckId = await scheduleFirstForfeitCheck(
+      ctx,
+      matchId,
+      startsAt,
     );
     await ctx.db.patch("matches", matchId, {
       status: "active",
@@ -201,6 +217,55 @@ export const join = mutation({
     return null;
   },
 });
+
+function scheduleFirstForfeitCheck(
+  ctx: MutationCtx,
+  matchId: Id<"matches">,
+  startsAt: number,
+) {
+  return ctx.scheduler.runAt(
+    startsAt + Math.min(RULES.idleForfeitMs, RULES.disconnectForfeitMs),
+    internal.matches.checkForfeits,
+    { matchId },
+  );
+}
+
+/**
+ * Create a match that is already active, for players paired by the queue.
+ * The board unlocks after the usual countdown. Returns null when the tier's
+ * pool is empty (a refill is scheduled).
+ */
+export async function createActiveMatch(
+  ctx: MutationCtx,
+  args: {
+    tier: Tier;
+    playerIds: [Id<"players">, Id<"players">];
+    rated: boolean;
+  },
+): Promise<Id<"matches"> | null> {
+  const puzzle = await drawPuzzle(ctx, args.tier);
+  if (puzzle === null) return null;
+  const startsAt = Date.now() + RULES.countdownMs;
+  const matchId = await ctx.db.insert("matches", {
+    status: "active",
+    tier: args.tier,
+    puzzleId: puzzle._id,
+    givens: puzzle.givens,
+    board: puzzle.givens,
+    owners: emptyOwners(),
+    emptyCount: countEmpty(puzzle.givens),
+    participants: args.playerIds.map((id) => newParticipant(id, startsAt)),
+    startsAt,
+    rated: args.rated,
+  });
+  const forfeitCheckId = await scheduleFirstForfeitCheck(
+    ctx,
+    matchId,
+    startsAt,
+  );
+  await ctx.db.patch("matches", matchId, { forfeitCheckId });
+  return matchId;
+}
 
 async function loadActive(ctx: MutationCtx, matchId: Id<"matches">) {
   const player = await requirePlayer(ctx);
@@ -230,6 +295,7 @@ export async function finish(
     result,
     forfeitCheckId: undefined,
   });
+  if (match.rated) await applyRatedResult(ctx, match, result);
 }
 
 /** Enter a digit. A correct digit in an empty cell claims it; the first commit wins. */
