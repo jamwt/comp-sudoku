@@ -59,6 +59,7 @@ export function Leaderboard() {
                   name={me.name}
                   rating={me.rating}
                   ratedGames={me.ratedGames}
+                  isBot={false}
                   highlight
                 />
               </>
@@ -82,12 +83,14 @@ function Row({
   name,
   rating,
   ratedGames,
+  isBot,
   highlight,
 }: {
   rank: number;
   name: string;
   rating: number;
   ratedGames: number;
+  isBot: boolean;
   highlight: boolean;
 }) {
   return (
@@ -99,7 +102,14 @@ function Row({
       data-testid={highlight ? "leaderboard-me" : undefined}
     >
       <td className="py-2 pr-2 tabular-nums">{rank}</td>
-      <td className="py-2">{name}</td>
+      <td className="py-2">
+        {name}
+        {isBot && (
+          <span className="ml-2 rounded bg-muted px-1 text-[10px] font-medium text-muted-foreground">
+            AI
+          </span>
+        )}
+      </td>
       <td className="py-2 text-right tabular-nums">{rating}</td>
       <td className="py-2 pl-4 text-right tabular-nums">{ratedGames}</td>
     </tr>

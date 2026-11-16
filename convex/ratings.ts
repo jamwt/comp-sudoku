@@ -159,6 +159,7 @@ export const leaderboard = query({
         name: v.string(),
         rating: v.number(),
         ratedGames: v.number(),
+        isBot: v.boolean(),
       }),
     ),
     me: v.union(v.null(), vMyRating),
@@ -176,6 +177,7 @@ export const leaderboard = query({
       name: string;
       rating: number;
       ratedGames: number;
+      isBot: boolean;
     }[] = [];
     for (const [i, row] of rows.entries()) {
       const prev = top[i - 1];
@@ -186,6 +188,7 @@ export const leaderboard = query({
         name: player?.name ?? "Unknown",
         rating: row.rating,
         ratedGames: row.ratedGames,
+        isBot: player?.kind === "bot",
       });
     }
     return { top, me: await myRating(ctx) };
