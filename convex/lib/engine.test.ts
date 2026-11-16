@@ -425,7 +425,7 @@ describe("checkForfeit", () => {
       state,
       [online, online],
       START,
-      START + 60_000,
+      START + 1_000 + rules.idleForfeitMs,
       rules,
     );
     expect(r.result).toEqual({ winner: 0, reason: "forfeit_idle" });

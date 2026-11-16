@@ -1,5 +1,4 @@
 import { ConvexError, v } from "convex/values";
-import { internal } from "./_generated/api";
 import {
   internalMutation,
   internalQuery,
@@ -10,11 +9,10 @@ import {
 import type { Doc } from "./_generated/dataModel";
 import { BOTS, RULES } from "./gameConfig";
 import { nextPlan, sampleForm } from "./lib/botBrain";
-import { countEmpty, emptyOwners, type Slot } from "./lib/engine";
+import { type Slot } from "./lib/engine";
 import { botProfile, scheduleBotStep } from "./botRuns";
-import { newParticipant, submitEntry } from "./matches";
+import { createActiveMatch, submitEntry } from "./matches";
 import { requirePlayer } from "./players";
-import { drawPuzzle } from "./puzzles";
 import { rateLimiter } from "./rateLimits";
 import { vTier } from "./schema";
 
@@ -170,30 +168,12 @@ export const startPractice = mutation({
       key: player._id,
       throws: true,
     });
-    const tier = args.tier ?? RULES.defaultTier;
-    const puzzle = await drawPuzzle(ctx, tier);
-    if (puzzle === null) return null;
-    const startsAt = Date.now() + RULES.countdownMs;
-    const matchId = await ctx.db.insert("matches", {
-      status: "active",
-      tier,
-      puzzleId: puzzle._id,
-      givens: puzzle.givens,
-      board: puzzle.givens,
-      owners: emptyOwners(),
-      emptyCount: countEmpty(puzzle.givens),
-      participants: [
-        newParticipant(player._id, startsAt),
-        newParticipant(bot._id, startsAt),
-      ],
-      startsAt,
+    const matchId = await createActiveMatch(ctx, {
+      tier: args.tier ?? RULES.defaultTier,
+      playerIds: [player._id, bot._id],
+      rated: false,
     });
-    const forfeitCheckId = await ctx.scheduler.runAt(
-      startsAt + Math.min(RULES.idleForfeitMs, RULES.disconnectForfeitMs),
-      internal.matches.checkForfeits,
-      { matchId },
-    );
-    await ctx.db.patch("matches", matchId, { forfeitCheckId });
+    if (matchId === null) return null;
     const match = await ctx.db.get("matches", matchId);
     await startBots(ctx, match!);
     return matchId;

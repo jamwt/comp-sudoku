@@ -4,6 +4,8 @@ import { useGuestSession } from "@/lib/guest";
 import { usePathname } from "@/lib/router";
 import { Home } from "@/pages/Home";
 import { MatchPage } from "@/pages/MatchPage";
+import { Leaderboard } from "@/pages/Leaderboard";
+import { QueueWatcher } from "@/pages/Ranked";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function App() {
@@ -19,11 +21,18 @@ export default function App() {
             Comp Sudoku
           </a>
           <div className="flex items-center gap-3 text-sm">
+            <a
+              href="/leaderboard"
+              className="text-muted-foreground underline-offset-4 hover:underline"
+            >
+              Leaderboard
+            </a>
             {ready && <PlayerName />}
             <ThemeToggle />
           </div>
         </nav>
       </header>
+      {ready && <QueueWatcher path={path} />}
       <main className="container flex grow flex-col py-6">
         {error ? (
           <p className="text-destructive">{error}</p>
@@ -31,6 +40,8 @@ export default function App() {
           <p className="text-muted-foreground">Signing you in as a guest…</p>
         ) : matchId ? (
           <MatchPage key={matchId} matchId={matchId} />
+        ) : path === "/leaderboard" ? (
+          <Leaderboard />
         ) : (
           <Home />
         )}

@@ -13,7 +13,7 @@ export const RULES = {
   /** Points deducted for a wrong digit (0 disables the point penalty). */
   wrongEntryPointPenalty: 0,
   /** A player who makes no entry or note for this long forfeits. */
-  idleForfeitMs: 30_000,
+  idleForfeitMs: 60_000,
   /** A player whose presence is offline for this long forfeits. */
   disconnectForfeitMs: 30_000,
   /** Client presence heartbeat; a silent client goes offline after 2.5 beats. */
@@ -179,4 +179,45 @@ export const BOT_RULES = {
    * beat each other, roughly as their Elo gap predicts.
    */
   formSigma: 0.25,
+};
+
+/** Elo ratings for rated (queue) matches. */
+export const RATING = {
+  /** Rating of a player who has never finished a rated match. */
+  initial: 1200,
+  /** Rated games played with the provisional K before switching to the established K. */
+  provisionalGames: 20,
+  kProvisional: 40,
+  kEstablished: 20,
+  /** Score for a drawn match (win = 1, loss = 0). */
+  drawScore: 0.5,
+  /** Most rows the leaderboard query returns. */
+  leaderboardMax: 100,
+};
+
+/** The ranked matchmaking queue. */
+export const MATCHMAKING = {
+  /** Difficulty tier ranked matches use. */
+  tier: "easy" as Tier,
+  /** Rating window (±) for a player who just joined. */
+  windowStart: 100,
+  /** Widest rating window (±), reached after `windowWidenMs` in the queue. */
+  windowMax: 400,
+  /** Wait time over which the window grows linearly from start to max. */
+  windowWidenMs: 30_000,
+  /** Wait time after which a player with no human match may be paired with a bot. */
+  botFallbackAfterMs: 20_000,
+  /** How often the pairing pass reruns while anyone is waiting. */
+  sweepIntervalMs: 2_000,
+  /** A queued player whose presence is offline this long is removed from the queue. */
+  disconnectGraceMs: 10_000,
+  /**
+   * Queue presence heartbeat. Unlike in a match, a hidden tab keeps beating, so
+   * this is long enough to survive background-tab timer throttling.
+   */
+  presenceHeartbeatMs: 15_000,
+  /** Most waiting players one pairing pass considers. */
+  maxPerPass: 200,
+  /** Per-player token bucket on queue joins. */
+  joinRateLimit: { rate: 6, periodMs: 60_000, capacity: 6 },
 };

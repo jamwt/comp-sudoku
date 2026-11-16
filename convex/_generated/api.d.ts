@@ -16,7 +16,9 @@ import type * as gameConfig from "../gameConfig.js";
 import type * as init from "../init.js";
 import type * as lib_botBrain from "../lib/botBrain.js";
 import type * as lib_botSim from "../lib/botSim.js";
+import type * as lib_elo from "../lib/elo.js";
 import type * as lib_engine from "../lib/engine.js";
+import type * as lib_matchmaking from "../lib/matchmaking.js";
 import type * as lib_sudoku_generator from "../lib/sudoku/generator.js";
 import type * as lib_sudoku_grader from "../lib/sudoku/grader.js";
 import type * as lib_sudoku_grid from "../lib/sudoku/grid.js";
@@ -28,7 +30,9 @@ import type * as notes from "../notes.js";
 import type * as players from "../players.js";
 import type * as presence from "../presence.js";
 import type * as puzzles from "../puzzles.js";
+import type * as queue from "../queue.js";
 import type * as rateLimits from "../rateLimits.js";
+import type * as ratings from "../ratings.js";
 import type * as users from "../users.js";
 
 import type {
@@ -46,7 +50,9 @@ declare const fullApi: ApiFromModules<{
   init: typeof init;
   "lib/botBrain": typeof lib_botBrain;
   "lib/botSim": typeof lib_botSim;
+  "lib/elo": typeof lib_elo;
   "lib/engine": typeof lib_engine;
+  "lib/matchmaking": typeof lib_matchmaking;
   "lib/sudoku/generator": typeof lib_sudoku_generator;
   "lib/sudoku/grader": typeof lib_sudoku_grader;
   "lib/sudoku/grid": typeof lib_sudoku_grid;
@@ -58,7 +64,9 @@ declare const fullApi: ApiFromModules<{
   players: typeof players;
   presence: typeof presence;
   puzzles: typeof puzzles;
+  queue: typeof queue;
   rateLimits: typeof rateLimits;
+  ratings: typeof ratings;
   users: typeof users;
 }>;
 
@@ -96,4 +104,5 @@ export declare const components: {
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
   puzzleWorkpool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"puzzleWorkpool">;
   staticHosting: import("@convex-dev/static-hosting/_generated/component.js").ComponentApi<"staticHosting">;
+  ratingAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"ratingAggregate">;
 };

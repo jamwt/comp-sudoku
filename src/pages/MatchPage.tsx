@@ -522,6 +522,55 @@ function Help() {
   );
 }
 
+function RatingChanges({ match }: { match: MatchView }) {
+  if (!match.rated) {
+    return (
+      <p className="text-sm text-muted-foreground" data-testid="result-rating">
+        Casual match · ratings unchanged
+      </p>
+    );
+  }
+  return (
+    <div
+      className="space-y-1 rounded-md border p-3"
+      data-testid="result-rating"
+    >
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Rated match
+      </p>
+      {match.participants.map((p, i) => {
+        const change = match.ratingChanges.find(
+          (c) => c.playerId === p.playerId,
+        );
+        if (!change) return null;
+        return (
+          <div key={p.playerId} className="flex justify-between text-sm">
+            <span className={TONE[slotTone(i as Slot, match.you)].text}>
+              {i === match.you ? "You" : p.name}
+            </span>
+            <span className="tabular-nums">
+              {change.before} → {change.after}{" "}
+              <span
+                className={cn(
+                  "font-semibold",
+                  change.delta > 0
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : change.delta < 0
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-muted-foreground",
+                )}
+              >
+                ({change.delta > 0 ? "+" : ""}
+                {change.delta})
+              </span>
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 const REASONS: Record<string, (loser: string) => string> = {
   board_full: () => "The board is complete.",
   clinch: () => "Clinched: more than half of the open cells.",
@@ -566,6 +615,7 @@ function ResultOverlay({
         <p className="text-muted-foreground" data-testid="result-reason">
           {REASONS[result.reason](loserName)}
         </p>
+        <RatingChanges match={match} />
         <div className="space-y-1">
           {match.participants.map((p, i) => (
             <div key={p.playerId} className="flex justify-between">

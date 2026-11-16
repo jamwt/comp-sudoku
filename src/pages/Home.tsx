@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { matchPath, navigate } from "@/lib/router";
 import { cn } from "@/lib/utils";
+import { RankedPanel } from "@/pages/Ranked";
 
 const TIER_LABELS: Record<Tier, string> = {
   easy: "Easy · singles only",
@@ -54,7 +55,7 @@ export function Home() {
     <div className="mx-auto flex w-full max-w-md flex-col gap-8 pt-6">
       <section className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">
-          Race a friend through one sudoku.
+          Race someone through one sudoku.
         </h1>
         <p className="text-muted-foreground">
           You share a board. A correct digit claims the cell; a wrong one locks
@@ -62,6 +63,8 @@ export function Home() {
           of the empty cells to win.
         </p>
       </section>
+
+      <RankedPanel />
 
       <section className="space-y-2">
         <label className="text-sm font-medium" htmlFor="name">
@@ -92,7 +95,12 @@ export function Home() {
       </section>
 
       <section className="space-y-3">
-        <span className="text-sm font-medium">Difficulty</span>
+        <div className="space-y-1">
+          <span className="text-sm font-medium">Casual match</span>
+          <p className="text-xs text-muted-foreground">
+            Invite a friend with a link. Casual matches are unrated.
+          </p>
+        </div>
         <div className="grid gap-2">
           {TIERS.map((t) => (
             <button
