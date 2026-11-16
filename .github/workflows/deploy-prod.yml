@@ -44,9 +44,9 @@ jobs:
             --typecheck enable \
             --cmd 'npx vite build' \
             --cmd-url-env-var-name VITE_CONVEX_URL
-      - name: Seed or top up the puzzle pool
+      - name: Seed or top up the puzzle pool and upsert the bot roster
         if: steps.key.outputs.present == 'true'
-        run: npx convex run puzzles:seed
+        run: npx convex run init
       - name: Upload the frontend
         if: steps.key.outputs.present == 'true'
         run: |

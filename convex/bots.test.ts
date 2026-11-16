@@ -103,6 +103,30 @@ describe("bots", () => {
     );
   });
 
+  test("init can rerun on a live deployment without duplicating bots or resetting ratings", async () => {
+    const t = setup();
+    const ids = await t.mutation(internal.bots.seed, {});
+    await t.run(async (ctx) => {
+      await ctx.db.insert("ratings", {
+        playerId: ids[0],
+        rating: 1111,
+        ratedGames: 7,
+      });
+    });
+    await t.mutation(internal.init.default, {});
+    await t.mutation(internal.init.default, {});
+    const bots = await t.query(api.bots.list, {});
+    expect(bots.map((b) => b._id)).toEqual(ids);
+    const { players, ratings } = await t.run(async (ctx) => ({
+      players: await ctx.db.query("players").collect(),
+      ratings: await ctx.db.query("ratings").collect(),
+    }));
+    expect(players.map((p) => p.rating)).toEqual(BOTS.map((b) => b.rating));
+    expect(ratings).toMatchObject([
+      { playerId: ids[0], rating: 1111, ratedGames: 7 },
+    ]);
+  });
+
   test("pickForRating returns the nearest bot, ties to the weaker one", async () => {
     const t = setup();
     expect(
