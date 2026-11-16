@@ -103,7 +103,10 @@ export const insertMany = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, { puzzles }) => {
+    const needs = await poolDeficits(ctx);
     for (const p of puzzles) {
+      if (needs[p.tier] <= 0) continue;
+      needs[p.tier]--;
       await ctx.db.insert("puzzles", { ...p, status: "available" });
     }
     return null;

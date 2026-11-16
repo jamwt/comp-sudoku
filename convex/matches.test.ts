@@ -291,3 +291,28 @@ describe("forfeits", () => {
     ).rejects.toThrow();
   });
 });
+
+describe("puzzle pool", () => {
+  test("overlapping top-ups never fill a tier past its target", async () => {
+    const t = setup();
+    const target = RULES.puzzlePool.targetPerTier.easy;
+    const batch = Array.from({ length: target }, () => ({
+      givens: GIVENS,
+      solution: SOLUTION,
+      tier: "easy" as const,
+      hardest: "nakedSingle",
+      clueCount: 76,
+    }));
+    await t.mutation(internal.puzzles.insertMany, { puzzles: batch });
+    await t.mutation(internal.puzzles.insertMany, { puzzles: batch });
+    const easy = await t.run(async (ctx) =>
+      ctx.db
+        .query("puzzles")
+        .withIndex("by_tier_and_status", (q) =>
+          q.eq("tier", "easy").eq("status", "available"),
+        )
+        .collect(),
+    );
+    expect(easy).toHaveLength(target);
+  });
+});
