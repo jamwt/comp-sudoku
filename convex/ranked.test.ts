@@ -360,6 +360,43 @@ describe("ranked queue", () => {
   });
 });
 
+describe("bot fallback with the real roster", () => {
+  afterEach(() => vi.useRealTimers());
+
+  test("after 20s the nearest seeded bot plays a rated match from its seed rating", async () => {
+    const t = setup();
+    await addPuzzles(t, GIVENS_5);
+    await t.run(async (ctx) => {
+      await ctx.runMutation(internal.bots.seed, {});
+    });
+    const alice = await signUp(t, "alice");
+    vi.useFakeTimers();
+    await stayOnline(alice);
+    await alice.mutation(api.queue.join, {});
+    vi.advanceTimersByTime(MATCHMAKING.botFallbackAfterMs + CLOCK_SLACK_MS);
+    await sweep(t);
+    const status = await alice.query(api.queue.status, {});
+    if (status.state !== "matched")
+      throw new Error(`not matched: ${status.state}`);
+    const view = await alice.query(api.matches.get, {
+      matchId: status.matchId,
+    });
+    const bot = view!.participants[1];
+    expect(view?.rated).toBe(true);
+    expect(bot.name).toBe("Marlow");
+    await alice.mutation(api.matches.resign, { matchId: status.matchId });
+    const after = await alice.query(api.matches.get, {
+      matchId: status.matchId,
+    });
+    expect(after?.ratingChanges).toEqual(
+      expect.arrayContaining([
+        { playerId: bot.playerId, before: 1300, after: 1314, delta: 14 },
+        expect.objectContaining({ before: 1200, after: 1186, delta: -14 }),
+      ]),
+    );
+  });
+});
+
 describe("ratings", () => {
   afterEach(() => vi.useRealTimers());
 
