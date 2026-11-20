@@ -92,13 +92,13 @@ export function Leaderboard() {
             Nobody has finished a ranked match yet. Be the first on the board!
           </p>
         ) : (
-          <table className="w-full text-sm" data-testid="leaderboard">
+          <table className="w-full table-fixed text-sm" data-testid="leaderboard">
             <thead>
               <tr className="border-b-2 border-ink bg-secondary/70 text-left font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                <th className="py-2.5 pl-4 pr-2">#</th>
+                <th className="w-12 py-2.5 pl-3 pr-1 sm:w-14 sm:pl-4 sm:pr-2">#</th>
                 <th className="py-2.5">Player</th>
-                <th className="py-2.5 text-right">Elo</th>
-                <th className="py-2.5 pl-4 pr-4 text-right">Games</th>
+                <th className="w-16 py-2.5 text-right sm:w-20">Elo</th>
+                <th className="w-16 py-2.5 pl-2 pr-3 text-right sm:w-20 sm:pl-4 sm:pr-4">Games</th>
               </tr>
             </thead>
             <tbody>
@@ -191,22 +191,22 @@ function Row({
       )}
       data-testid={highlight ? "leaderboard-me" : undefined}
     >
-      <td className="py-2.5 pl-4 pr-2">
+      <td className="py-2.5 pl-3 pr-1 sm:pl-4 sm:pr-2">
         <RankBadge rank={rank} />
       </td>
-      <td className="py-2.5">
-        <div className="flex items-center gap-2.5">
+      <td className="py-2.5 pr-2">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-2.5">
           <PlayerAvatar name={name} isBot={isBot} size="sm" />
-          <span className="truncate font-display text-sm font-bold text-foreground">
+          <span className="min-w-0 truncate font-display text-sm font-bold text-foreground">
             {name}
           </span>
           {isBot && (
-            <span className="rounded-md border border-ink/30 bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase leading-none text-muted-foreground">
+            <span className="shrink-0 rounded-md border border-ink/30 bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase leading-none text-muted-foreground">
               AI
             </span>
           )}
           {highlight && (
-            <span className="rounded-md border border-ink/40 bg-primary px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase leading-none text-primary-foreground">
+            <span className="shrink-0 rounded-md border border-ink/40 bg-primary px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase leading-none text-primary-foreground">
               YOU
             </span>
           )}
@@ -215,7 +215,7 @@ function Row({
       <td className="py-2.5 text-right font-mono text-sm font-bold tabular-nums text-foreground">
         {rating}
       </td>
-      <td className="py-2.5 pl-4 pr-4 text-right font-mono text-xs font-semibold tabular-nums text-muted-foreground">
+      <td className="py-2.5 pl-2 pr-3 text-right font-mono text-xs font-semibold tabular-nums text-muted-foreground sm:pl-4 sm:pr-4">
         {ratedGames}
       </td>
     </tr>

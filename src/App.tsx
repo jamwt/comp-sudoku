@@ -69,7 +69,7 @@ export default function App() {
                 <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
                 <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
               </svg>
-              <span className="hidden sm:inline">Leaderboard</span>
+              <span className="sr-only sm:not-sr-only">Leaderboard</span>
             </a>
 
             {ready && <PlayerChip />}

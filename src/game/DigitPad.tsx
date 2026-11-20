@@ -78,6 +78,7 @@ export function DigitPad(p: DigitPadProps) {
         <button
           type="button"
           onClick={p.onToggleNotes}
+          aria-pressed={p.notesMode}
           data-testid="notes-toggle"
           className={cn(
             "toy-key flex h-10 items-center justify-center gap-1.5 rounded-xl px-2 font-display text-xs font-semibold sm:text-sm",
@@ -101,6 +102,7 @@ export function DigitPad(p: DigitPadProps) {
         <button
           type="button"
           onClick={p.onToggleDigitFirst}
+          aria-pressed={p.digitFirst}
           data-testid="digit-first-toggle"
           className={cn(
             "toy-key flex h-10 items-center justify-center gap-1.5 rounded-xl px-2 font-display text-xs font-semibold sm:text-sm",
