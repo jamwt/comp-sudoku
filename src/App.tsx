@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { useGuestSession } from "@/lib/guest";
@@ -8,8 +9,10 @@ import { Leaderboard } from "@/pages/Leaderboard";
 import { QueueWatcher } from "@/pages/Ranked";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SoundToggle } from "@/components/SoundToggle";
+import { HelpModal } from "@/components/HelpModal";
 import { NinepopMark, NinepopWordmark } from "@/components/NinepopLogo";
 import { PlayerAvatar } from "@/components/Avatars";
+import { isHelpToggleEvent } from "@/lib/keyboard";
 import { cn } from "@/lib/utils";
 import { sound } from "@/lib/sound";
 
@@ -28,25 +31,37 @@ export default function App() {
   const { ready, error } = useGuestSession();
   const path = usePathname();
   const matchId = /^\/m\/([a-z0-9]+)$/.exec(path)?.[1] ?? null;
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!isHelpToggleEvent(e)) return;
+      e.preventDefault();
+      sound.playTap();
+      setHelpOpen((open) => !open);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div className="flex min-h-screen w-full flex-col">
       <header className="sticky top-0 z-30 border-b-2 border-ink bg-card/95 backdrop-blur-sm">
-        <nav className="container flex h-16 items-center justify-between gap-2">
+        <nav className="container flex h-16 items-center justify-between gap-1.5 sm:gap-2">
           <a
             href="/"
             onClick={(e) => handleClientNav(e, "/")}
-            className="group inline-flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl"
+            className="group inline-flex items-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <NinepopWordmark />
           </a>
 
-          <div className="flex items-center gap-1.5 sm:gap-2.5">
+          <div className="flex items-center gap-1 sm:gap-2">
             <a
               href="/leaderboard"
               onClick={(e) => handleClientNav(e, "/leaderboard")}
               className={cn(
-                "toy-key inline-flex h-9 items-center gap-1.5 rounded-xl px-2.5 font-display text-xs font-semibold sm:px-3 sm:text-sm",
+                "toy-key inline-flex h-9 items-center gap-1.5 rounded-xl px-2 font-display text-xs font-semibold sm:px-3 sm:text-sm",
                 path === "/leaderboard"
                   ? "bg-primary text-primary-foreground"
                   : "bg-card text-foreground hover:bg-accent",
@@ -73,6 +88,28 @@ export default function App() {
             </a>
 
             {ready && <PlayerChip />}
+
+            <button
+              type="button"
+              onClick={() => {
+                sound.playTap();
+                setHelpOpen(true);
+              }}
+              aria-label="How to play and keyboard shortcuts"
+              aria-haspopup="dialog"
+              aria-expanded={helpOpen}
+              title="How to play & shortcuts (?)"
+              data-testid="help-toggle"
+              className={cn(
+                "toy-key inline-flex h-9 w-9 items-center justify-center rounded-xl font-display text-base font-bold",
+                helpOpen
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-card text-foreground hover:bg-accent",
+              )}
+            >
+              ?
+            </button>
+
             <SoundToggle />
             <ThemeToggle />
           </div>
@@ -97,13 +134,23 @@ export default function App() {
             </p>
           </div>
         ) : matchId ? (
-          <MatchPage key={matchId} matchId={matchId} />
+          <MatchPage
+            key={matchId}
+            matchId={matchId}
+            helpOpen={helpOpen}
+            onOpenHelp={() => {
+              sound.playTap();
+              setHelpOpen(true);
+            }}
+          />
         ) : path === "/leaderboard" ? (
           <Leaderboard />
         ) : (
           <Home />
         )}
       </main>
+
+      <HelpModal open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
   );
 }

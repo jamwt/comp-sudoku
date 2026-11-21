@@ -6,6 +6,8 @@ import type { Id } from "../../convex/_generated/dataModel";
 import type { MatchView } from "../../convex/matches";
 import { RULES } from "../../convex/gameConfig";
 import type { Slot } from "../../convex/lib/engine";
+import { pruneNotesForPlacement } from "../../convex/lib/notes";
+import { isEditableTarget } from "@/lib/keyboard";
 import { Board } from "@/game/Board";
 import { DigitPad } from "@/game/DigitPad";
 import { slotTone, TONE } from "@/game/colors";
@@ -36,7 +38,15 @@ function setChar(s: string, i: number, ch: string) {
   return s.slice(0, i) + ch + s.slice(i + 1);
 }
 
-export function MatchPage({ matchId }: { matchId: string }) {
+export function MatchPage({
+  matchId,
+  helpOpen = false,
+  onOpenHelp,
+}: {
+  matchId: string;
+  helpOpen?: boolean;
+  onOpenHelp?: () => void;
+}) {
   const match = useQuery(api.matches.get, { matchId });
   const join = useMutation(api.matches.join);
   const joinAttempted = useRef(false);
@@ -88,7 +98,7 @@ export function MatchPage({ matchId }: { matchId: string }) {
     );
   }
   if (match.status === "waiting") return <WaitingRoom match={match} />;
-  return <Game match={match} />;
+  return <Game match={match} helpOpen={helpOpen} onOpenHelp={onOpenHelp} />;
 }
 
 function WaitingRoom({ match }: { match: MatchView }) {
@@ -200,7 +210,15 @@ function WaitingRoom({ match }: { match: MatchView }) {
   );
 }
 
-function Game({ match }: { match: MatchView }) {
+function Game({
+  match,
+  helpOpen,
+  onOpenHelp,
+}: {
+  match: MatchView;
+  helpOpen: boolean;
+  onOpenHelp?: () => void;
+}) {
   const matchId = match._id;
   const you = match.you;
   const playing = you !== null && match.status === "active";
@@ -323,6 +341,17 @@ function Game({ match }: { match: MatchView }) {
           ),
         },
       );
+      const currentNotes = store.getQuery(api.notes.mine, { matchId });
+      if (currentNotes) {
+        const pruned = pruneNotesForPlacement(
+          currentNotes,
+          args.cell,
+          args.digit,
+        );
+        if (pruned !== null) {
+          store.setQuery(api.notes.mine, { matchId }, pruned);
+        }
+      }
     },
   );
 
@@ -415,9 +444,10 @@ function Game({ match }: { match: MatchView }) {
   );
 
   useEffect(() => {
+    if (helpOpen) return;
     function onKey(e: KeyboardEvent) {
       if (
-        e.target instanceof HTMLInputElement ||
+        isEditableTarget(e.target) ||
         e.metaKey ||
         e.ctrlKey ||
         e.altKey
@@ -471,7 +501,7 @@ function Game({ match }: { match: MatchView }) {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [cursor, digitFirst, notesMode, armedDigit, act, clear, pulseKey]);
+  }, [helpOpen, cursor, digitFirst, notesMode, armedDigit, act, clear, pulseKey]);
 
   const onCellClick = (cell: number) => {
     setCursor(cell);
@@ -600,7 +630,7 @@ function Game({ match }: { match: MatchView }) {
 
         {playing && <ResignButton matchId={matchId} />}
 
-        <Help />
+        <Help onOpenHelp={onOpenHelp} />
       </aside>
 
       {match.status === "finished" && showResult && (
@@ -903,10 +933,21 @@ function ResignButton({ matchId }: { matchId: Id<"matches"> }) {
   );
 }
 
-function Help() {
+function Help({ onOpenHelp }: { onOpenHelp?: () => void }) {
   return (
     <div className="toy-card-sm space-y-2 p-3.5 text-xs text-muted-foreground">
-      <p className="font-display text-sm font-bold text-foreground">Controls</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-display text-sm font-bold text-foreground">Controls</p>
+        {onOpenHelp && (
+          <button
+            type="button"
+            onClick={onOpenHelp}
+            className="inline-flex items-center gap-1 rounded-lg border border-ink/40 bg-secondary/80 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:bg-accent"
+          >
+            Full guide <kbd className="kbd-cap">?</kbd>
+          </button>
+        )}
+      </div>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
           <span>Move</span>

@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { recordActivity, type Slot } from "./lib/engine";
+import { pruneNotesForPlacement } from "./lib/notes";
 import { currentPlayer, requirePlayer } from "./players";
 import { rateLimiter } from "./rateLimits";
 
@@ -81,3 +82,26 @@ export const clear = mutation({
     return null;
   },
 });
+
+/**
+ * Prunes invalidated candidate marks across all players in a match after a
+ * valid placement of `digit` at `cell`. Called inside `submitEntry` so human
+ * and bot claims keep every player's private notes consistent atomically.
+ */
+export async function pruneMatchNotes(
+  ctx: MutationCtx,
+  matchId: Id<"matches">,
+  cell: number,
+  digit: number,
+) {
+  const docs = await ctx.db
+    .query("notes")
+    .withIndex("by_matchId_and_playerId", (q) => q.eq("matchId", matchId))
+    .take(2);
+  for (const doc of docs) {
+    const pruned = pruneNotesForPlacement(doc.marks, cell, digit);
+    if (pruned !== null) {
+      await ctx.db.patch("notes", doc._id, { marks: pruned });
+    }
+  }
+}
