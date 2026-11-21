@@ -25,7 +25,7 @@ export function Board(props: BoardProps) {
     <div className="rounded-2xl border-2 border-ink bg-card p-1.5 shadow-toy sm:p-2">
       <div
         className={cn(
-          "grid aspect-square w-full select-none grid-cols-9 overflow-hidden rounded-xl border-[2.5px] border-ink bg-screen transition-opacity duration-150",
+          "grid aspect-square w-full select-none grid-cols-9 grid-rows-9 overflow-hidden rounded-xl border-[2.5px] border-ink bg-screen transition-opacity duration-150",
           props.disabled && "opacity-85",
         )}
         data-testid="board"
@@ -88,7 +88,7 @@ const Cell = memo(function Cell(p: CellProps) {
         p.onClick(p.cell);
       }}
       className={cn(
-        "relative flex items-center justify-center border-border/80 font-sans text-[clamp(1.05rem,4.6vw,1.9rem)] leading-none tabular-nums transition-colors duration-100 focus:outline-none",
+        "relative flex min-h-0 min-w-0 items-center justify-center overflow-hidden border-border/80 font-sans text-[clamp(1.05rem,4.6vw,1.9rem)] leading-none tabular-nums transition-colors duration-100 focus:outline-none",
         col < 8 &&
           (col % 3 === 2
             ? "border-r-[2.5px] border-r-ink"

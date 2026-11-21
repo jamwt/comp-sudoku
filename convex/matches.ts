@@ -18,6 +18,7 @@ import {
   type Slot,
 } from "./lib/engine";
 import { botProfile, wakeBots } from "./botRuns";
+import { pruneMatchNotes } from "./notes";
 import { currentPlayer, requirePlayer } from "./players";
 import { drawPuzzle } from "./puzzles";
 import { presence } from "./presence";
@@ -352,6 +353,7 @@ export async function submitEntry(
   }
   switch (outcome.kind) {
     case "claimed":
+      await pruneMatchNotes(ctx, match._id, cell, digit);
       if (outcome.result) await finish(ctx, match, outcome.result);
       else await wakeBots(ctx, match._id, playerId, cell);
       return { kind: "claimed", cell, digit, ended: outcome.result !== null };

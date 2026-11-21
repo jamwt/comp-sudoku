@@ -218,6 +218,56 @@ describe("matches", () => {
     expect(JSON.stringify(view)).not.toContain("marks");
   });
 
+  test("a valid placement clears conflicting peer notes for both players, while wrong entries do not", async () => {
+    const t = setup();
+    const { alice, bob, matchId } = await startMatch(t);
+    // SOLUTION row 0: cell 0 = 5, cell 4 = 7, cell 5 = 8, cell 6 = 9, cell 7 = 1.
+    // Alice puts notes on cell 0 ({5, 6}), row-peer cell 4 ({5, 7, 8}), and non-peer cell 40 ({5, 7}).
+    await alice.mutation(api.notes.toggle, { matchId, cell: 0, digit: 5 });
+    await alice.mutation(api.notes.toggle, { matchId, cell: 0, digit: 6 });
+    await alice.mutation(api.notes.toggle, { matchId, cell: 4, digit: 5 });
+    await alice.mutation(api.notes.toggle, { matchId, cell: 4, digit: 7 });
+    await alice.mutation(api.notes.toggle, { matchId, cell: 4, digit: 8 });
+    await alice.mutation(api.notes.toggle, { matchId, cell: 40, digit: 5 });
+    await alice.mutation(api.notes.toggle, { matchId, cell: 40, digit: 7 });
+
+    // Bob puts notes on row-peer cell 5 ({5, 8, 9}) and cell 0 ({5, 9}).
+    await bob.mutation(api.notes.toggle, { matchId, cell: 5, digit: 5 });
+    await bob.mutation(api.notes.toggle, { matchId, cell: 5, digit: 8 });
+    await bob.mutation(api.notes.toggle, { matchId, cell: 5, digit: 9 });
+    await bob.mutation(api.notes.toggle, { matchId, cell: 0, digit: 5 });
+    await bob.mutation(api.notes.toggle, { matchId, cell: 0, digit: 9 });
+
+    // A wrong entry by Alice (digit 6 at cell 0, where solution is 5) must NOT prune any notes.
+    const wrong = await alice.mutation(api.matches.enter, {
+      matchId,
+      cell: 0,
+      digit: 6,
+    });
+    expect(wrong.kind).toBe("wrong");
+    const aliceAfterWrong = await alice.query(api.notes.mine, { matchId });
+    expect(aliceAfterWrong?.[0]).toBe((1 << 4) | (1 << 5));
+    expect(aliceAfterWrong?.[4]).toBe((1 << 4) | (1 << 6) | (1 << 7));
+
+    // Bob enters the correct digit 5 at cell 0 (opponent claim!).
+    // Both Bob's AND Alice's conflicting notes must be pruned, while non-peers stay intact.
+    const claimed = await bob.mutation(api.matches.enter, {
+      matchId,
+      cell: 0,
+      digit: 5,
+    });
+    expect(claimed).toMatchObject({ kind: "claimed", cell: 0, digit: 5 });
+
+    const aliceAfter = await alice.query(api.notes.mine, { matchId });
+    expect(aliceAfter?.[0]).toBe(0); // claimed cell cleared
+    expect(aliceAfter?.[4]).toBe((1 << 6) | (1 << 7)); // dropped 5, kept {7, 8}
+    expect(aliceAfter?.[40]).toBe((1 << 4) | (1 << 6)); // non-peer untouched ({5, 7})
+
+    const bobAfter = await bob.query(api.notes.mine, { matchId });
+    expect(bobAfter?.[0]).toBe(0); // claimed cell cleared
+    expect(bobAfter?.[5]).toBe((1 << 7) | (1 << 8)); // dropped 5, kept {8, 9}
+  });
+
   test("outsiders cannot play", async () => {
     const t = setup();
     const { matchId } = await startMatch(t);
