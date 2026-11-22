@@ -180,6 +180,18 @@ describe("bots", () => {
     expect(await pick(1200)).toBe(byKey("juniper"));
     expect(await pick(850)).toBe(byKey("tilly"));
     expect(await pick(1850)).toBe(byKey("vega"));
+
+    // Once a bot has a live rating in `ratings`, both `list` and `pickForRating` use it
+    await t.run(async (ctx) => {
+      await ctx.db.insert("ratings", {
+        playerId: byKey("marlow"),
+        rating: 1180,
+        ratedGames: 5,
+      });
+    });
+    const listAfter = await t.query(api.bots.list, {});
+    expect(listAfter.find((b) => b.name === "Marlow")?.rating).toBe(1180);
+    expect(await pick(1200)).toBe(byKey("marlow"));
   });
 
   test("a practice match starts at once and the bot wins it through the normal entry path", async () => {
