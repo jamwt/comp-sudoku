@@ -119,4 +119,16 @@ describe("matchAnalytics", () => {
     expect(timeline.comebackFrom).toBe(0);
     expect(timeline.leadChanges).toBe(0);
   });
+
+  it("does not award a comeback or wire-to-wire badge when winning by forfeit while trailing", () => {
+    const moves: MatchMove[] = [
+      { at: 1_000, slot: 1, cell: 0, strategy: "fullHouse" },
+      { at: 2_000, slot: 1, cell: 1, strategy: "hiddenSingle" },
+      { at: 3_000, slot: 1, cell: 2, strategy: "hiddenSingle" },
+    ];
+    // Slot 1 led 3-0 and then resigned, awarding winner = 0 while slot 0 still trails -3
+    const timeline = buildLeadTimeline(moves, 0, 4_000, 0, 0);
+    expect(timeline.comebackFrom).toBe(0);
+    expect(timeline.wireToWire).toBe(false);
+  });
 });

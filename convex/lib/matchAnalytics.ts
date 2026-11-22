@@ -76,10 +76,14 @@ export function buildLeadTimeline(
   let wireToWire = false;
   if (winner !== null && moves.length > 0) {
     const winnerIsYou = winner === perspective;
+    const winnerFinalLead = winnerIsYou
+      ? youScore - oppScore
+      : oppScore - youScore;
     const winnerDeficit = winnerIsYou ? maxOppLead : maxYouLead;
     const winnerMoves = winnerIsYou ? youScore : oppScore;
-    if (winnerDeficit >= 2) comebackFrom = winnerDeficit;
-    else if (winnerDeficit === 0 && winnerMoves >= 3) wireToWire = true;
+    if (winnerFinalLead > 0 && winnerDeficit >= 2) comebackFrom = winnerDeficit;
+    else if (winnerFinalLead > 0 && winnerDeficit === 0 && winnerMoves >= 3)
+      wireToWire = true;
   }
 
   return {
