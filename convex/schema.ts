@@ -15,6 +15,27 @@ export const vEndReason = v.union(
   v.literal("forfeit_disconnect"),
 );
 
+export const vMoveStrategy = v.union(
+  v.literal("fullHouse"),
+  v.literal("hiddenSingle"),
+  v.literal("nakedSingle"),
+  v.literal("pointing"),
+  v.literal("boxLineReduction"),
+  v.literal("nakedPair"),
+  v.literal("hiddenPair"),
+  v.literal("nakedTriple"),
+  v.literal("hiddenTriple"),
+  v.literal("xWing"),
+  v.literal("deep"),
+);
+
+export const vMove = v.object({
+  at: v.number(),
+  slot: v.union(v.literal(0), v.literal(1)),
+  cell: v.number(),
+  strategy: vMoveStrategy,
+});
+
 export const vParticipant = v.object({
   playerId: v.id("players"),
   score: v.number(),
@@ -70,6 +91,8 @@ export default defineSchema({
     forfeitCheckId: v.optional(v.id("_scheduled_functions")),
     /** Queue matches are rated; invite-link matches leave this unset (casual). */
     rated: v.optional(v.boolean()),
+    /** Claim history recorded in chronological order for post-match analytics. */
+    moves: v.optional(v.array(vMove)),
   }),
 
   /** Live Elo per player. A player with no row has the initial rating and no games. */

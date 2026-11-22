@@ -24,7 +24,8 @@ import { drawPuzzle } from "./puzzles";
 import { presence } from "./presence";
 import { applyRatedResult, ratingChangesFor } from "./ratings";
 import { rateLimiter } from "./rateLimits";
-import { vEndReason, vTier } from "./schema";
+import { classifyPlacement, parseGrid } from "./lib/sudoku";
+import { vEndReason, vMove, vTier } from "./schema";
 
 const vMatchView = v.object({
   _id: v.id("matches"),
@@ -70,6 +71,8 @@ const vMatchView = v.object({
       delta: v.number(),
     }),
   ),
+  /** Chronological cell claims with deduction strategy; populated once finished. */
+  moves: v.array(vMove),
 });
 export type MatchView = Infer<typeof vMatchView>;
 
@@ -141,6 +144,7 @@ export const get = query({
         match.status === "finished" && match.rated
           ? await ratingChangesFor(ctx, match._id)
           : [],
+      moves: match.status === "finished" ? (match.moves ?? []) : [],
     };
   },
 });
@@ -342,14 +346,19 @@ export async function submitEntry(
     RULES,
   );
   if (next !== match) {
-    await ctx.db.patch("matches", match._id, {
+    const patch: Partial<Doc<"matches">> = {
       board: next.board,
       owners: next.owners,
       participants: match.participants.map((p, i) => ({
         ...next.participants[i],
         playerId: p.playerId,
       })),
-    });
+    };
+    if (outcome.kind === "claimed") {
+      const strategy = classifyPlacement(parseGrid(match.board), cell, digit);
+      patch.moves = [...(match.moves ?? []), { at: now, slot, cell, strategy }];
+    }
+    await ctx.db.patch("matches", match._id, patch);
   }
   switch (outcome.kind) {
     case "claimed":

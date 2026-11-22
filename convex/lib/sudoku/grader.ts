@@ -290,6 +290,102 @@ export function gradePuzzle(givens: Grid): {
   return { tier: TECHNIQUE_TIER[hardest], hardest, solved, counts };
 }
 
+export const MOVE_STRATEGIES = [
+  "fullHouse",
+  "hiddenSingle",
+  "nakedSingle",
+  "pointing",
+  "boxLineReduction",
+  "nakedPair",
+  "hiddenPair",
+  "nakedTriple",
+  "hiddenTriple",
+  "xWing",
+  "deep",
+] as const;
+
+export type MoveStrategy = (typeof MOVE_STRATEGIES)[number];
+
+const ELIMINATION_STEPS: {
+  strategy: Exclude<MoveStrategy, "fullHouse" | "hiddenSingle" | "nakedSingle" | "deep">;
+  run: Step;
+}[] = [
+  { strategy: "pointing", run: pointing },
+  { strategy: "boxLineReduction", run: boxLineReduction },
+  { strategy: "nakedPair", run: nakedSubset(2) },
+  { strategy: "hiddenPair", run: hiddenSubset(2) },
+  { strategy: "nakedTriple", run: nakedSubset(3) },
+  { strategy: "hiddenTriple", run: hiddenSubset(3) },
+  { strategy: "xWing", run: xWing },
+];
+
+/**
+ * Classifies the simplest human deduction strategy sufficient to prove `digit`
+ * in `cell` from the given `board` state right before the claim.
+ */
+export function classifyPlacement(
+  board: Grid,
+  cell: number,
+  digit: number,
+): MoveStrategy {
+  if (cell < 0 || cell > 80 || digit < 1 || digit > 9 || board[cell] !== 0) {
+    return "deep";
+  }
+  const s: State = {
+    values: new Array(81).fill(0),
+    cands: new Array(81).fill(ALL),
+  };
+  board.forEach((d, i) => {
+    if (d !== 0) place(s, i, d);
+  });
+
+  const bit = 1 << (digit - 1);
+  if ((s.cands[cell] & bit) === 0) return "deep";
+
+  const row = Math.floor(cell / 9);
+  const col = cell % 9;
+  const box = Math.floor(row / 3) * 3 + Math.floor(col / 3);
+  const cellUnits = [ROWS[row], COLS[col], BOXES[box]];
+
+  const isFullHouse = () =>
+    cellUnits.some((unit) => {
+      let open = 0;
+      for (const c of unit) if (s.values[c] === 0) open++;
+      return open === 1;
+    });
+
+  const isHiddenSingle = () =>
+    cellUnits.some((unit) => {
+      let count = 0;
+      for (const c of unit) {
+        if (s.values[c] === 0 && (s.cands[c] & bit) !== 0) count++;
+      }
+      return count === 1;
+    });
+
+  const isNakedSingle = () => s.cands[cell] === bit;
+
+  if (isFullHouse()) return "fullHouse";
+  if (isHiddenSingle()) return "hiddenSingle";
+  if (isNakedSingle()) return "nakedSingle";
+
+  let hardestIdx = -1;
+  for (;;) {
+    let progressed = false;
+    for (let i = 0; i < ELIMINATION_STEPS.length; i++) {
+      if (ELIMINATION_STEPS[i].run(s)) {
+        if (i > hardestIdx) hardestIdx = i;
+        progressed = true;
+        if (isHiddenSingle() || isNakedSingle()) {
+          return ELIMINATION_STEPS[hardestIdx].strategy;
+        }
+        break;
+      }
+    }
+    if (!progressed) return "deep";
+  }
+}
+
 export type Placement = { cell: number; digit: number; technique: Technique };
 
 /**
