@@ -231,5 +231,43 @@ describe("bot brain", () => {
     expect(slow / fast).toBeLessThan(2.2);
     expect(median("xWing", 1)).toBeGreaterThan(median("nakedPair", 1));
     expect(median("nakedPair", 1)).toBeGreaterThan(median("nakedSingle", 1));
+    expect(median("nakedSingle", 1)).toBeGreaterThan(median("hiddenSingle", 1));
+    expect(median("hiddenSingle", 1)).toBeGreaterThan(median("fullHouse", 1));
+    // Hard eliminations take substantially longer than simple full houses
+    expect(median("pointing", 1) / median("fullHouse", 1)).toBeGreaterThan(8);
+  });
+
+  test("strongly favors and speeds up an obvious peer full-house follow-up", () => {
+    const solution =
+      "534678912672195348198342567859761423426853791713924856961537284287419635345286179";
+    // Leave cell 1 (row 0, col 1 — full house in row 0 right next to lastMove cell 0!)
+    // plus a 2x2 block of non-full-house hidden singles far away in box 8 (rows 6-7, cols 6-7).
+    const chars = solution.split("");
+    for (const c of [1, 60, 61, 69, 70]) chars[c] = "0";
+    const board = chars.join("");
+    const skill = perfect(ALL_TECHNIQUES);
+    const rng = mulberry32(42);
+    let pickedFollowUp = 0;
+    const followUpTimes: number[] = [];
+    const coldTimes: number[] = [];
+
+    for (let i = 0; i < 400; i++) {
+      const withMomentum = planMove(
+        { board, excluded: [], lastMove: { cell: 0, digit: 5 } },
+        skill,
+        rng,
+      )!;
+      if (withMomentum.cell === 1) {
+        pickedFollowUp++;
+        followUpTimes.push(withMomentum.thinkMs);
+      }
+      const cold = planMove({ board, excluded: [] }, skill, rng)!;
+      if (cold.cell === 1) coldTimes.push(cold.thinkMs);
+    }
+
+    expect(pickedFollowUp / 400).toBeGreaterThan(0.65);
+    const med = (xs: number[]) =>
+      [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+    expect(med(followUpTimes)).toBeLessThan(med(coldTimes) * 0.75);
   });
 });

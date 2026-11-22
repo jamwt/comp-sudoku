@@ -71,60 +71,60 @@ export const BOTS = [
     key: "pip",
     name: "Pip",
     level: "Beginner",
-    rating: 800,
+    rating: 400,
     skill: {
       techniques: ["hiddenSingle"],
-      thinkScale: 4.0,
-      errorRate: 0.08,
-      guessAfterMs: 25_000,
+      thinkScale: 9.5,
+      errorRate: 0.14,
+      guessAfterMs: 42_000,
     },
   },
   {
     key: "tilly",
     name: "Tilly",
     level: "Novice",
-    rating: 1050,
+    rating: 700,
     skill: {
       techniques: SINGLES,
-      thinkScale: 2.1,
-      errorRate: 0.06,
-      guessAfterMs: 20_000,
+      thinkScale: 5.5,
+      errorRate: 0.09,
+      guessAfterMs: 32_000,
     },
   },
   {
     key: "marlow",
     name: "Marlow",
-    level: "Intermediate",
-    rating: 1300,
+    level: "Casual",
+    rating: 1000,
     skill: {
       techniques: [...SINGLES, ...INTERSECTIONS],
-      thinkScale: 1.45,
-      errorRate: 0.045,
-      guessAfterMs: 16_000,
+      thinkScale: 3.4,
+      errorRate: 0.06,
+      guessAfterMs: 25_000,
     },
   },
   {
     key: "juniper",
     name: "Juniper",
-    level: "Advanced",
-    rating: 1550,
+    level: "Club",
+    rating: 1350,
     skill: {
       techniques: [...SINGLES, ...INTERSECTIONS, ...PAIRS],
-      thinkScale: 1.0,
-      errorRate: 0.03,
-      guessAfterMs: 13_000,
+      thinkScale: 2.15,
+      errorRate: 0.035,
+      guessAfterMs: 19_000,
     },
   },
   {
     key: "vega",
     name: "Vega",
     level: "Expert",
-    rating: 1800,
+    rating: 1700,
     skill: {
       techniques: [...SINGLES, ...INTERSECTIONS, ...PAIRS, ...TRIPLES],
-      thinkScale: 0.7,
+      thinkScale: 1.35,
       errorRate: 0.02,
-      guessAfterMs: 10_000,
+      guessAfterMs: 14_000,
     },
   },
   {
@@ -134,9 +134,9 @@ export const BOTS = [
     rating: 2000,
     skill: {
       techniques: [...SINGLES, ...INTERSECTIONS, ...PAIRS, ...TRIPLES, "xWing"],
-      thinkScale: 0.5,
+      thinkScale: 0.88,
       errorRate: 0.01,
-      guessAfterMs: 8_000,
+      guessAfterMs: 10_000,
     },
   },
 ] as const satisfies readonly {
@@ -148,27 +148,46 @@ export const BOTS = [
 }[];
 
 export type BotProfile = (typeof BOTS)[number];
+export type BotThinkKind = "fullHouse" | BotTechnique;
 
 /** How bots pace themselves; per-bot skill scales these. */
 export const BOT_RULES = {
   /**
-   * Think time per technique at thinkScale 1: a log-normal distribution with
-   * this median and spread. A move's think time comes from the hardest
-   * technique its deduction needed.
+   * Think time per move kind at thinkScale 1: a log-normal distribution with
+   * this median and spread. Obvious full houses resolve briskly while
+   * non-single eliminations require realistic scanning pauses.
    */
   thinkByTechnique: {
-    hiddenSingle: { medianMs: 2_400, sigma: 0.45 },
-    nakedSingle: { medianMs: 3_600, sigma: 0.5 },
-    pointing: { medianMs: 7_000, sigma: 0.5 },
-    boxLineReduction: { medianMs: 7_500, sigma: 0.5 },
-    nakedPair: { medianMs: 9_000, sigma: 0.5 },
-    hiddenPair: { medianMs: 11_000, sigma: 0.5 },
-    nakedTriple: { medianMs: 15_000, sigma: 0.55 },
-    hiddenTriple: { medianMs: 17_000, sigma: 0.55 },
-    xWing: { medianMs: 20_000, sigma: 0.55 },
-  } satisfies Record<BotTechnique, { medianMs: number; sigma: number }>,
+    fullHouse: { medianMs: 1_450, sigma: 0.35 },
+    hiddenSingle: { medianMs: 3_400, sigma: 0.42 },
+    nakedSingle: { medianMs: 6_200, sigma: 0.48 },
+    pointing: { medianMs: 15_000, sigma: 0.48 },
+    boxLineReduction: { medianMs: 17_000, sigma: 0.48 },
+    nakedPair: { medianMs: 22_000, sigma: 0.5 },
+    hiddenPair: { medianMs: 27_000, sigma: 0.5 },
+    nakedTriple: { medianMs: 36_000, sigma: 0.55 },
+    hiddenTriple: { medianMs: 42_000, sigma: 0.55 },
+    xWing: { medianMs: 52_000, sigma: 0.55 },
+  } satisfies Record<BotThinkKind, { medianMs: number; sigma: number }>,
+  /** Relative selection weights so bots spot obvious singles before obscure ones. */
+  salienceWeight: {
+    fullHouse: 12,
+    hiddenSingle: 4,
+    nakedSingle: 1,
+    hard: 1,
+  },
+  /** Selection weight boost when a direct single follows up on the bot's last placement. */
+  followUpBoost: {
+    peer: 8,
+    sameDigit: 3,
+  },
+  /** Think-time multiplier when chaining a direct single follow-up. */
+  followUpThinkFactor: {
+    peer: 0.58,
+    sameDigit: 0.75,
+  },
   /** Floor on any think time. */
-  minThinkMs: 500,
+  minThinkMs: 450,
   /** Cap on a think time, as a multiple of its median. */
   maxThinkFactor: 4,
   /** Spread of the wait before a guess, around the bot's guessAfterMs. */

@@ -13,6 +13,7 @@ import { type Slot } from "./lib/engine";
 import { botProfile, scheduleBotStep } from "./botRuns";
 import { createActiveMatch, submitEntry } from "./matches";
 import { requirePlayer } from "./players";
+import { resetLiveRating } from "./ratings";
 import { rateLimiter } from "./rateLimits";
 import { vTier } from "./schema";
 
@@ -35,7 +36,14 @@ export const seed = internalMutation({
     for (const bot of BOTS) {
       const row = existing.find((p) => p.botProfile === bot.key);
       if (row) {
-        await ctx.db.patch("players", row._id, { name: bot.name });
+        const ratingChanged = row.rating !== bot.rating;
+        await ctx.db.patch("players", row._id, {
+          name: bot.name,
+          rating: bot.rating,
+        });
+        if (ratingChanged) {
+          await resetLiveRating(ctx, row._id, bot.rating);
+        }
         ids.push(row._id);
       } else {
         ids.push(
@@ -215,6 +223,7 @@ export const step = internalMutation({
     }
 
     let excluded = run.excluded;
+    let lastMove = run.lastMove;
     const plan = run.plan;
     if (plan && plan.dueAt > now) {
       await scheduleBotStep(ctx, runId, plan.dueAt);
@@ -228,9 +237,12 @@ export const step = internalMutation({
         plan.cell,
         plan.digit,
       );
-      if (outcome.kind === "claimed" && outcome.ended) {
-        await ctx.db.delete("botRuns", runId);
-        return null;
+      if (outcome.kind === "claimed") {
+        lastMove = { cell: plan.cell, digit: plan.digit };
+        if (outcome.ended) {
+          await ctx.db.delete("botRuns", runId);
+          return null;
+        }
       }
       if (outcome.kind === "locked" || outcome.kind === "rate_limited") {
         const retryAt =
@@ -247,7 +259,7 @@ export const step = internalMutation({
     }
 
     const next = nextPlan(
-      { board: match.board, excluded },
+      { board: match.board, excluded, lastMove },
       { ...profile.skill, thinkScale: profile.skill.thinkScale * run.form },
       now,
       match.participants[slot].lockedUntil,
@@ -260,6 +272,7 @@ export const step = internalMutation({
     await ctx.db.patch("botRuns", runId, {
       status: next.stuck ? "stuck" : "thinking",
       excluded,
+      lastMove,
       plan: {
         cell: next.plan.cell,
         digit: next.plan.digit,

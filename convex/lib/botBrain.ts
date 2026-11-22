@@ -1,9 +1,14 @@
-import { BOT_RULES, type BotSkill } from "../gameConfig";
+import { BOT_RULES, type BotSkill, type BotThinkKind } from "../gameConfig";
 import {
+  BOXES,
+  COLS,
   PEERS,
+  ROWS,
   findPlacements,
   parseGrid,
   popcount,
+  type Grid,
+  type Placement,
   type Rng,
   type Technique,
 } from "./sudoku";
@@ -15,12 +20,15 @@ import {
  */
 
 export type Excluded = { cell: number; digit: number };
+export type LastMove = { cell: number; digit: number };
 
 export type BotView = {
   /** 81 chars: givens plus claimed digits, "0" where empty. */
   board: string;
   /** Digits this bot entered and the server rejected. */
   excluded: readonly Excluded[];
+  /** Most recent cell this bot claimed, used for human follow-up momentum. */
+  lastMove?: LastMove | null;
 };
 
 export type PlanIntent = "deduce" | "blunder" | "guess";
@@ -30,8 +38,8 @@ export type BotPlan = {
   digit: number;
   thinkMs: number;
   intent: PlanIntent;
-  /** The hardest technique behind the move, or "guess". */
-  technique: Technique | "guess";
+  /** The hardest technique behind the move, or "fullHouse" / "guess". */
+  technique: Technique | "fullHouse" | "guess";
 };
 
 /** A standard normal draw (Box-Muller). */
@@ -54,19 +62,103 @@ function pick<T>(items: readonly T[], rng: Rng): T {
   return items[Math.floor(rng() * items.length)];
 }
 
+function weightedPick<T>(
+  items: readonly T[],
+  weightOf: (item: T) => number,
+  rng: Rng,
+): T {
+  let total = 0;
+  const weights = items.map((item) => {
+    const w = Math.max(0.01, weightOf(item));
+    total += w;
+    return w;
+  });
+  let r = rng() * total;
+  for (let i = 0; i < items.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return items[i];
+  }
+  return items[items.length - 1];
+}
+
+/** True when any row, column, or box containing `cell` has only `cell` left empty. */
+function isFullHouse(grid: Grid, cell: number): boolean {
+  if (grid[cell] !== 0) return false;
+  const row = Math.floor(cell / 9);
+  const col = cell % 9;
+  const box = Math.floor(row / 3) * 3 + Math.floor(col / 3);
+  return [ROWS[row], COLS[col], BOXES[box]].some((unit) => {
+    let open = 0;
+    for (const c of unit) {
+      if (grid[c] === 0) open++;
+    }
+    return open === 1;
+  });
+}
+
+function moveThinkKind(grid: Grid, move: Placement): BotThinkKind {
+  if (
+    (move.technique === "hiddenSingle" || move.technique === "nakedSingle") &&
+    isFullHouse(grid, move.cell)
+  ) {
+    return "fullHouse";
+  }
+  return move.technique as Exclude<Technique, "unsolved">;
+}
+
+function isDirectSingle(kind: BotThinkKind): boolean {
+  return (
+    kind === "fullHouse" || kind === "hiddenSingle" || kind === "nakedSingle"
+  );
+}
+
+type FollowUpKind = "peer" | "sameDigit" | "none";
+
+function followUpKind(
+  move: Placement,
+  kind: BotThinkKind,
+  lastMove: LastMove | null | undefined,
+): FollowUpKind {
+  if (!lastMove || !isDirectSingle(kind)) return "none";
+  if (PEERS[lastMove.cell].includes(move.cell)) return "peer";
+  if (move.digit === lastMove.digit) return "sameDigit";
+  return "none";
+}
+
+function placementWeight(kind: BotThinkKind, followUp: FollowUpKind): number {
+  const base =
+    kind === "fullHouse"
+      ? BOT_RULES.salienceWeight.fullHouse
+      : kind === "hiddenSingle"
+        ? BOT_RULES.salienceWeight.hiddenSingle
+        : kind === "nakedSingle"
+          ? BOT_RULES.salienceWeight.nakedSingle
+          : BOT_RULES.salienceWeight.hard;
+  if (followUp === "peer") return base * BOT_RULES.followUpBoost.peer;
+  if (followUp === "sameDigit") return base * BOT_RULES.followUpBoost.sameDigit;
+  return base;
+}
+
 /** This match's form: a multiplier on think time, median 1. */
 export function sampleForm(rng: Rng): number {
   return Math.exp(BOT_RULES.formSigma * normal(rng));
 }
 
-/** Think time for a move whose hardest technique was `technique`. */
+/** Think time for a move whose perceptual kind was `technique`. */
 export function thinkTime(
-  technique: Exclude<Technique, "unsolved">,
+  technique: BotThinkKind,
   skill: BotSkill,
   rng: Rng,
+  followUp: FollowUpKind = "none",
 ): number {
   const t = BOT_RULES.thinkByTechnique[technique];
-  return logNormal(rng, t.medianMs * skill.thinkScale, t.sigma);
+  const momentum =
+    followUp === "peer"
+      ? BOT_RULES.followUpThinkFactor.peer
+      : followUp === "sameDigit"
+        ? BOT_RULES.followUpThinkFactor.sameDigit
+        : 1;
+  return logNormal(rng, t.medianMs * skill.thinkScale * momentum, t.sigma);
 }
 
 /** A digit that looks plausible in `cell` (no peer holds it) but isn't `correct`. */
@@ -78,8 +170,9 @@ function wrongDigit(grid: number[], cell: number, correct: number, rng: Rng) {
 
 /**
  * The next deducible move for a bot with `skill`, or null when its
- * techniques find nothing on this board. With probability `errorRate` the
- * move is entered with a wrong digit.
+ * techniques find nothing on this board. Obvious moves (full houses and
+ * peer/same-digit follow-ups after the bot's last placement) are strongly
+ * favored and resolved faster, while hard eliminations take realistic pauses.
  */
 export function planMove(
   view: BotView,
@@ -89,19 +182,36 @@ export function planMove(
   const grid = parseGrid(view.board);
   const { placements } = findPlacements(grid, skill.techniques, view.excluded);
   if (placements.length === 0) return null;
-  const move = pick(placements, rng);
-  const technique = move.technique as Exclude<Technique, "unsolved">;
-  const thinkMs = thinkTime(technique, skill, rng);
+
+  const scored = placements.map((move) => {
+    const kind = moveThinkKind(grid, move);
+    const followUp = followUpKind(move, kind, view.lastMove);
+    return {
+      move,
+      kind,
+      followUp,
+      weight: placementWeight(kind, followUp),
+    };
+  });
+
+  const chosen = weightedPick(scored, (s) => s.weight, rng);
+  const thinkMs = thinkTime(chosen.kind, skill, rng, chosen.followUp);
   if (rng() < skill.errorRate) {
-    const digit = wrongDigit(grid, move.cell, move.digit, rng);
-    return { cell: move.cell, digit, thinkMs, intent: "blunder", technique };
+    const digit = wrongDigit(grid, chosen.move.cell, chosen.move.digit, rng);
+    return {
+      cell: chosen.move.cell,
+      digit,
+      thinkMs,
+      intent: "blunder",
+      technique: chosen.kind,
+    };
   }
   return {
-    cell: move.cell,
-    digit: move.digit,
+    cell: chosen.move.cell,
+    digit: chosen.move.digit,
     thinkMs,
     intent: "deduce",
-    technique,
+    technique: chosen.kind,
   };
 }
 

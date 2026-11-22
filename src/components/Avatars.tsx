@@ -67,7 +67,7 @@ export function BotCritterAvatar({
   }
 }
 
-/** Pip (800 · Beginner): Cozy mint sprout-chick hatchling. */
+/** Pip (400 · Beginner): Cozy mint sprout-chick hatchling. */
 function PipSvg({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 64 64" fill="none" aria-hidden="true" className={className}>
@@ -135,7 +135,7 @@ function PipSvg({ className }: { className?: string }) {
   );
 }
 
-/** Tilly (1050 · Novice): Studious butter-yellow bunny with oversized glasses. */
+/** Tilly (700 · Novice): Studious butter-yellow bunny with oversized glasses. */
 function TillySvg({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 64 64" fill="none" aria-hidden="true" className={className}>
@@ -209,7 +209,7 @@ function TillySvg({ className }: { className?: string }) {
   );
 }
 
-/** Marlow (1300 · Intermediate): Sporty sky-and-coral fox with a headband. */
+/** Marlow (1000 · Casual): Sporty sky-and-coral fox with a headband. */
 function MarlowSvg({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 64 64" fill="none" aria-hidden="true" className={className}>
@@ -255,7 +255,7 @@ function MarlowSvg({ className }: { className?: string }) {
   );
 }
 
-/** Juniper (1550 · Advanced): Sharp lavender-plum owl with amber specs. */
+/** Juniper (1350 · Club): Sharp lavender-plum owl with amber specs. */
 function JuniperSvg({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 64 64" fill="none" aria-hidden="true" className={className}>
@@ -294,7 +294,7 @@ function JuniperSvg({ className }: { className?: string }) {
   );
 }
 
-/** Vega (1800 · Expert): Sleek cosmic cyber-cat with star visor. */
+/** Vega (1700 · Expert): Sleek cosmic cyber-cat with star visor. */
 function VegaSvg({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 64 64" fill="none" aria-hidden="true" className={className}>

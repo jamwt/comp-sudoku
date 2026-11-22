@@ -433,13 +433,6 @@ export function findPlacements(
         rank(single) >= hardest ? single : STEPS[hardest].technique;
       found.set(cell, { cell, digit, technique });
     };
-    if (allowed.has("nakedSingle")) {
-      for (let i = 0; i < 81; i++) {
-        if (s.values[i] === 0 && popcount(s.cands[i]) === 1) {
-          add(i, 32 - Math.clz32(s.cands[i]), "nakedSingle");
-        }
-      }
-    }
     if (allowed.has("hiddenSingle")) {
       for (const unit of UNITS) {
         for (let d = 1; d <= 9; d++) {
@@ -448,6 +441,13 @@ export function findPlacements(
             (c) => s.values[c] === 0 && s.cands[c] & bit,
           );
           if (cells.length === 1) add(cells[0], d, "hiddenSingle");
+        }
+      }
+    }
+    if (allowed.has("nakedSingle")) {
+      for (let i = 0; i < 81; i++) {
+        if (s.values[i] === 0 && popcount(s.cands[i]) === 1) {
+          add(i, 32 - Math.clz32(s.cands[i]), "nakedSingle");
         }
       }
     }

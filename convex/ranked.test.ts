@@ -383,15 +383,15 @@ describe("bot fallback with the real roster", () => {
     });
     const bot = view!.participants[1];
     expect(view?.rated).toBe(true);
-    expect(bot.name).toBe("Marlow");
+    expect(bot.name).toBe("Juniper");
     await alice.mutation(api.matches.resign, { matchId: status.matchId });
     const after = await alice.query(api.matches.get, {
       matchId: status.matchId,
     });
     expect(after?.ratingChanges).toEqual(
       expect.arrayContaining([
-        { playerId: bot.playerId, before: 1300, after: 1314, delta: 14 },
-        expect.objectContaining({ before: 1200, after: 1186, delta: -14 }),
+        { playerId: bot.playerId, before: 1350, after: 1362, delta: 12 },
+        expect.objectContaining({ before: 1200, after: 1188, delta: -12 }),
       ]),
     );
   });

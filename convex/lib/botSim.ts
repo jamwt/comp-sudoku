@@ -1,5 +1,5 @@
 import type { BotSkill, Rules } from "../gameConfig";
-import { nextPlan, sampleForm, type BotPlan, type Excluded } from "./botBrain";
+import { nextPlan, sampleForm, type BotPlan, type Excluded, type LastMove } from "./botBrain";
 import {
   applyEntry,
   countEmpty,
@@ -23,6 +23,7 @@ type BotState = {
   dueAt: number;
   stuck: boolean;
   excluded: Excluded[];
+  lastMove: LastMove | null;
 };
 
 export type SimResult = {
@@ -63,10 +64,15 @@ export function simulate(
     dueAt: 0,
     stuck: false,
     excluded: [],
+    lastMove: null,
   }));
   const replan = (i: number, now: number) => {
     const next = nextPlan(
-      { board: state.board, excluded: bots[i].excluded },
+      {
+        board: state.board,
+        excluded: bots[i].excluded,
+        lastMove: bots[i].lastMove,
+      },
       inForm[i],
       now,
       state.participants[i].lockedUntil,
@@ -108,6 +114,7 @@ export function simulate(
         ];
       }
       if (outcome.kind === "claimed") {
+        bots[i].lastMove = { cell: plan.cell, digit: plan.digit };
         result = skills.length > 1 ? evaluateEnd(state) : null;
         if (result || remainingCells(state) === 0) break;
         bots.forEach((b, j) => {

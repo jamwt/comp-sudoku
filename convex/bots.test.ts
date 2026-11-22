@@ -4,9 +4,11 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import authCore from "@convex-dev/auth/test";
 import authPassword from "@convex-dev/auth/components/password/test";
 import authUsername from "@convex-dev/auth/components/username/test";
+import aggregate from "@convex-dev/aggregate/test";
 import presence from "@convex-dev/presence/test";
 import rateLimiter from "@convex-dev/rate-limiter/test";
 import workpool from "@convex-dev/workpool/test";
+import { ratingAggregate } from "./ratings";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
@@ -30,6 +32,7 @@ function setup() {
   authCore.registerCore(t);
   authPassword.registerPassword(t);
   authUsername.registerUsername(t);
+  aggregate.register(t, "ratingAggregate");
   presence.register(t);
   rateLimiter.register(t);
   workpool.register(t, "puzzleWorkpool");
@@ -85,7 +88,7 @@ describe("bots", () => {
   beforeEach(() => vi.useRealTimers());
   afterEach(() => vi.useRealTimers());
 
-  test("seed creates the roster once, with distinct names and ratings 800-2000", async () => {
+  test("seed creates the roster once, with distinct names and ratings 400-2000", async () => {
     const t = setup();
     const first = await t.mutation(internal.bots.seed, {});
     const second = await t.mutation(internal.bots.seed, {});
@@ -95,7 +98,7 @@ describe("bots", () => {
     expect(new Set(bots.map((b) => b.name)).size).toBe(6);
     const ratings = bots.map((b) => b.rating);
     expect(ratings).toEqual([...ratings].sort((a, b) => a - b));
-    expect(ratings[0]).toBe(800);
+    expect(ratings[0]).toBe(400);
     expect(ratings[5]).toBe(2000);
     const rows = await t.run(async (ctx) => ctx.db.query("players").collect());
     expect(rows.every((p) => p.kind === "bot" && p.userId === undefined)).toBe(
@@ -127,6 +130,41 @@ describe("bots", () => {
     ]);
   });
 
+  test("seed re-anchors a bot's live rating and aggregate once when its configured tier changes", async () => {
+    const t = setup();
+    const ids = await t.mutation(internal.bots.seed, {});
+    const tillyId = ids[1];
+    // Simulate a pre-rebalance deployment where Tilly was seeded at 1050 and had played ranked games
+    await t.run(async (ctx) => {
+      await ctx.db.patch("players", tillyId, { rating: 1050 });
+      const ratingId = await ctx.db.insert("ratings", {
+        playerId: tillyId,
+        rating: 1068,
+        ratedGames: 4,
+      });
+      await ratingAggregate.insert(ctx, (await ctx.db.get("ratings", ratingId))!);
+    });
+
+    await t.mutation(internal.bots.seed, {});
+    const afterRebalance = await t.run(async (ctx) => ({
+      player: await ctx.db.get("players", tillyId),
+      rating: await ctx.db
+        .query("ratings")
+        .withIndex("by_playerId", (q) => q.eq("playerId", tillyId))
+        .unique(),
+      countAtNewRating: await ratingAggregate.count(ctx, {
+        bounds: {
+          lower: { key: BOTS[1].rating, inclusive: true },
+          upper: { key: BOTS[1].rating, inclusive: true },
+        },
+      }),
+    }));
+    expect(afterRebalance.player?.rating).toBe(BOTS[1].rating);
+    expect(afterRebalance.rating?.rating).toBe(BOTS[1].rating);
+    expect(afterRebalance.rating?.ratedGames).toBe(4);
+    expect(afterRebalance.countAtNewRating).toBe(1);
+  });
+
   test("pickForRating returns the nearest bot, ties to the weaker one", async () => {
     const t = setup();
     expect(
@@ -138,10 +176,10 @@ describe("bots", () => {
     const byKey = (key: string) => ids[BOTS.findIndex((b) => b.key === key)];
     expect(await pick(0)).toBe(byKey("pip"));
     expect(await pick(5000)).toBe(byKey("ada"));
-    expect(await pick(1300)).toBe(byKey("marlow"));
-    expect(await pick(1200)).toBe(byKey("marlow"));
-    expect(await pick(1175)).toBe(byKey("tilly"));
-    expect(await pick(1900)).toBe(byKey("vega"));
+    expect(await pick(1000)).toBe(byKey("marlow"));
+    expect(await pick(1200)).toBe(byKey("juniper"));
+    expect(await pick(850)).toBe(byKey("tilly"));
+    expect(await pick(1850)).toBe(byKey("vega"));
   });
 
   test("a practice match starts at once and the bot wins it through the normal entry path", async () => {
