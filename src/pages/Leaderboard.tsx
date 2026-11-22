@@ -1,5 +1,6 @@
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { RATING } from "../../convex/gameConfig";
 import { PlayerAvatar } from "@/components/Avatars";
 import { Button } from "@/components/ui/button";
 import { navigate } from "@/lib/router";
@@ -76,8 +77,10 @@ export function Leaderboard() {
             <PlayerAvatar name={me.name} isBot={false} size="sm" />
             <p className="text-xs font-semibold text-foreground sm:text-sm">
               {me.rank === null
-                ? `You are unranked at ${me.rating}. Finish a ranked race to claim a spot!`
-                : `You are #${me.rank} of ${me.total}, ahead of ${me.percentile}% of rated players.`}
+                ? `You are unranked at ${me.rating}. Finish a ranked race to start calibrating!`
+                : me.ratedGames < RATING.calibrationGames
+                  ? `Calibrating (${me.ratedGames}/${RATING.calibrationGames}) · #${me.rank} of ${me.total}`
+                  : `You are #${me.rank} of ${me.total}, ahead of ${me.percentile}% of rated players.`}
             </p>
           </div>
           <span className="shrink-0 rounded-lg border-2 border-ink bg-screen px-2.5 py-1 font-mono text-sm font-bold tabular-nums text-foreground">
@@ -203,6 +206,14 @@ function Row({
           {isBot && (
             <span className="shrink-0 rounded-md border border-ink/30 bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase leading-none text-muted-foreground">
               AI
+            </span>
+          )}
+          {!isBot && ratedGames < RATING.calibrationGames && (
+            <span
+              title={`Calibrating (${ratedGames}/${RATING.calibrationGames} ranked games)`}
+              className="shrink-0 rounded-md border border-ink/30 bg-primary/70 px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase leading-none text-primary-foreground"
+            >
+              CAL
             </span>
           )}
           {highlight && (

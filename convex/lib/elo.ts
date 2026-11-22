@@ -25,9 +25,9 @@ export function expectedScore(rating: number, opponent: number): number {
 
 /** K for a player who has already finished `ratedGames` rated games. */
 export function kFactor(ratedGames: number, rules: RatingRules): number {
-  return ratedGames < rules.provisionalGames
-    ? rules.kProvisional
-    : rules.kEstablished;
+  if (ratedGames < rules.calibrationGames) return rules.kCalibration;
+  if (ratedGames < rules.provisionalGames) return rules.kProvisional;
+  return rules.kEstablished;
 }
 
 /**

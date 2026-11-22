@@ -183,7 +183,7 @@ describe("ranked queue", () => {
     await addPuzzles(t, GIVENS_5);
     const alice = await signUp(t, "alice");
     const bob = await signUp(t, "bob");
-    await setRating(t, bob, 1450);
+    await setRating(t, bob, RATING.initial + 250);
     vi.useFakeTimers();
     await stayOnline(alice);
     await stayOnline(bob);
@@ -383,15 +383,15 @@ describe("bot fallback with the real roster", () => {
     });
     const bot = view!.participants[1];
     expect(view?.rated).toBe(true);
-    expect(bot.name).toBe("Juniper");
+    expect(bot.name).toBe("Marlow");
     await alice.mutation(api.matches.resign, { matchId: status.matchId });
     const after = await alice.query(api.matches.get, {
       matchId: status.matchId,
     });
     expect(after?.ratingChanges).toEqual(
       expect.arrayContaining([
-        { playerId: bot.playerId, before: 1350, after: 1362, delta: 12 },
-        expect.objectContaining({ before: 1200, after: 1188, delta: -12 }),
+        { playerId: bot.playerId, before: 1000, after: 1060, delta: 60 },
+        expect.objectContaining({ before: 1000, after: 940, delta: -60 }),
       ]),
     );
   });
@@ -409,19 +409,19 @@ describe("ratings", () => {
     const [aliceId, bobId] = [await playerId(alice), await playerId(bob)];
     expect(view?.ratingChanges).toEqual(
       expect.arrayContaining([
-        { playerId: aliceId, before: 1200, after: 1220, delta: 20 },
-        { playerId: bobId, before: 1200, after: 1180, delta: -20 },
+        { playerId: aliceId, before: 1000, after: 1060, delta: 60 },
+        { playerId: bobId, before: 1000, after: 940, delta: -60 },
       ]),
     );
     expect(await alice.query(api.ratings.mine, {})).toMatchObject({
-      rating: 1220,
+      rating: 1060,
       ratedGames: 1,
       rank: 1,
       percentile: 50,
       total: 2,
     });
     expect(await bob.query(api.ratings.mine, {})).toMatchObject({
-      rating: 1180,
+      rating: 940,
       ratedGames: 1,
       rank: 2,
       percentile: 0,
@@ -437,10 +437,10 @@ describe("ratings", () => {
       expect.objectContaining({
         matchId,
         opponentId: bobId,
-        ratingBefore: 1200,
-        ratingAfter: 1220,
-        delta: 20,
-        k: 40,
+        ratingBefore: 1000,
+        ratingAfter: 1060,
+        delta: 60,
+        k: 120,
         score: 1,
       }),
     ]);
@@ -450,8 +450,8 @@ describe("ratings", () => {
     const t = setup();
     const { alice, bob, matchId } = await rankedMatch(t);
     await alice.mutation(api.matches.resign, { matchId });
-    expect((await alice.query(api.ratings.mine, {}))?.rating).toBe(1180);
-    expect((await bob.query(api.ratings.mine, {}))?.rating).toBe(1220);
+    expect((await alice.query(api.ratings.mine, {}))?.rating).toBe(940);
+    expect((await bob.query(api.ratings.mine, {}))?.rating).toBe(1060);
   });
 
   test("a full-board draw is half a point", async () => {
@@ -462,11 +462,11 @@ describe("ratings", () => {
     const view = await alice.query(api.matches.get, { matchId });
     expect(view?.result).toEqual({ winner: null, reason: "board_full" });
     expect(await alice.query(api.ratings.mine, {})).toMatchObject({
-      rating: 1200,
+      rating: 1000,
       ratedGames: 1,
     });
     expect(await bob.query(api.ratings.mine, {})).toMatchObject({
-      rating: 1200,
+      rating: 1000,
       ratedGames: 1,
     });
   });
@@ -487,8 +487,8 @@ describe("ratings", () => {
     });
     const view = await bob.query(api.matches.get, { matchId });
     expect(view?.result).toEqual({ winner: 0, reason: "forfeit_disconnect" });
-    expect((await alice.query(api.ratings.mine, {}))?.rating).toBe(1220);
-    expect((await bob.query(api.ratings.mine, {}))?.rating).toBe(1180);
+    expect((await alice.query(api.ratings.mine, {}))?.rating).toBe(1060);
+    expect((await bob.query(api.ratings.mine, {}))?.rating).toBe(940);
   });
 
   test("K drops to 20 after 20 rated games", async () => {
