@@ -118,5 +118,15 @@ describe("sound helpers", () => {
     // Idle suspend releases Chrome's audio thread after 1.5s
     vi.advanceTimersByTime(1_600);
     expect(suspend).toHaveBeenCalledTimes(1);
+
+    // Muting mid-effect stops & disconnects active oscillators before suspending
+    sound.playWin();
+    await Promise.resolve();
+    const oscDisconnectBeforeMute = oscDisconnect.mock.calls.length;
+    sound.setEnabled(false);
+    expect(oscDisconnect.mock.calls.length).toBeGreaterThan(
+      oscDisconnectBeforeMute,
+    );
+    expect(suspend).toHaveBeenCalledTimes(2);
   });
 });

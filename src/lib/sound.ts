@@ -56,7 +56,7 @@ class SoundEngine {
   private enabled = loadSoundEnabled();
   private ctx: AudioContext | null = null;
   private listeners = new Set<() => void>();
-  private activeVoices = 0;
+  private voices = new Set<{ osc: OscillatorNode; gain: GainNode }>();
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private visibilityBound = false;
 
@@ -70,10 +70,7 @@ class SoundEngine {
     if (next) {
       this.playTap();
     } else {
-      this.clearIdleTimer();
-      if (this.ctx && this.ctx.state === "running") {
-        void this.ctx.suspend().catch(() => {});
-      }
+      this.haltAndSuspend();
     }
   };
 
@@ -86,13 +83,38 @@ class SoundEngine {
     return () => this.listeners.delete(listener);
   };
 
+  private stopAllVoices(): void {
+    for (const voice of this.voices) {
+      try {
+        voice.osc.onended = null;
+        voice.osc.stop();
+      } catch {
+        // Ignore oscillators that already stopped.
+      }
+      try {
+        voice.osc.disconnect();
+        voice.gain.disconnect();
+      } catch {
+        // Ignore already-disconnected nodes.
+      }
+    }
+    this.voices.clear();
+  }
+
+  private haltAndSuspend(): void {
+    this.clearIdleTimer();
+    this.stopAllVoices();
+    if (this.ctx && this.ctx.state === "running") {
+      void this.ctx.suspend().catch(() => {});
+    }
+  }
+
   private bindVisibility(): void {
     if (this.visibilityBound || typeof document === "undefined") return;
     this.visibilityBound = true;
     document.addEventListener("visibilitychange", () => {
-      if (document.hidden && this.ctx && this.ctx.state === "running") {
-        this.clearIdleTimer();
-        void this.ctx.suspend().catch(() => {});
+      if (document.hidden) {
+        this.haltAndSuspend();
       }
     });
   }
@@ -111,7 +133,7 @@ class SoundEngine {
       if (
         this.ctx &&
         this.ctx.state === "running" &&
-        this.activeVoices === 0
+        this.voices.size === 0
       ) {
         void this.ctx.suspend().catch(() => {});
       }
@@ -137,6 +159,7 @@ class SoundEngine {
           .resume()
           .then(() => {
             if (!this.enabled || ctx.state !== "running") return;
+            if (typeof document !== "undefined" && document.hidden) return;
             run(ctx);
             this.scheduleIdleSuspend();
           })
@@ -156,7 +179,7 @@ class SoundEngine {
     delaySec = 0,
   ) {
     this.withContext((ctx) => {
-      if (this.activeVoices >= MAX_ACTIVE_VOICES) return;
+      if (this.voices.size >= MAX_ACTIVE_VOICES) return;
       const t0 = ctx.currentTime + delaySec;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -173,15 +196,16 @@ class SoundEngine {
       gain.gain.exponentialRampToValueAtTime(0.0001, t0 + durationSec);
       osc.connect(gain);
       gain.connect(ctx.destination);
-      this.activeVoices++;
+      const voice = { osc, gain };
+      this.voices.add(voice);
       osc.onended = () => {
+        this.voices.delete(voice);
         try {
           osc.disconnect();
           gain.disconnect();
         } catch {
           // Ignore already-disconnected nodes.
         }
-        this.activeVoices = Math.max(0, this.activeVoices - 1);
       };
       osc.start(t0);
       osc.stop(t0 + durationSec + 0.01);
