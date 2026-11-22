@@ -13,6 +13,7 @@ import { type Slot } from "./lib/engine";
 import { botProfile, scheduleBotStep } from "./botRuns";
 import { createActiveMatch, submitEntry } from "./matches";
 import { requirePlayer } from "./players";
+import { resetLiveRating } from "./ratings";
 import { rateLimiter } from "./rateLimits";
 import { vTier } from "./schema";
 
@@ -35,10 +36,14 @@ export const seed = internalMutation({
     for (const bot of BOTS) {
       const row = existing.find((p) => p.botProfile === bot.key);
       if (row) {
+        const ratingChanged = row.rating !== bot.rating;
         await ctx.db.patch("players", row._id, {
           name: bot.name,
           rating: bot.rating,
         });
+        if (ratingChanged) {
+          await resetLiveRating(ctx, row._id, bot.rating);
+        }
         ids.push(row._id);
       } else {
         ids.push(

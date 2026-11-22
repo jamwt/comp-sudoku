@@ -37,6 +37,18 @@ export async function getRating(ctx: QueryCtx, playerId: Id<"players">) {
   };
 }
 
+/** Re-anchor a player's live rating and aggregate entry when a bot's seed tier changes. */
+export async function resetLiveRating(
+  ctx: MutationCtx,
+  playerId: Id<"players">,
+  rating: number,
+) {
+  const row = await ratingRow(ctx, playerId);
+  if (!row || row.rating === rating) return;
+  await ctx.db.patch("ratings", row._id, { rating });
+  await ratingAggregate.replace(ctx, row, { ...row, rating });
+}
+
 /**
  * Apply Elo to both participants of a finished rated match, in the caller's
  * transaction. Writes the live ratings, the aggregate, and one history row

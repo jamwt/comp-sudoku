@@ -4,9 +4,11 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import authCore from "@convex-dev/auth/test";
 import authPassword from "@convex-dev/auth/components/password/test";
 import authUsername from "@convex-dev/auth/components/username/test";
+import aggregate from "@convex-dev/aggregate/test";
 import presence from "@convex-dev/presence/test";
 import rateLimiter from "@convex-dev/rate-limiter/test";
 import workpool from "@convex-dev/workpool/test";
+import { ratingAggregate } from "./ratings";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
@@ -30,6 +32,7 @@ function setup() {
   authCore.registerCore(t);
   authPassword.registerPassword(t);
   authUsername.registerUsername(t);
+  aggregate.register(t, "ratingAggregate");
   presence.register(t);
   rateLimiter.register(t);
   workpool.register(t, "puzzleWorkpool");
@@ -125,6 +128,41 @@ describe("bots", () => {
     expect(ratings).toMatchObject([
       { playerId: ids[0], rating: 1111, ratedGames: 7 },
     ]);
+  });
+
+  test("seed re-anchors a bot's live rating and aggregate once when its configured tier changes", async () => {
+    const t = setup();
+    const ids = await t.mutation(internal.bots.seed, {});
+    const tillyId = ids[1];
+    // Simulate a pre-rebalance deployment where Tilly was seeded at 1050 and had played ranked games
+    await t.run(async (ctx) => {
+      await ctx.db.patch("players", tillyId, { rating: 1050 });
+      const ratingId = await ctx.db.insert("ratings", {
+        playerId: tillyId,
+        rating: 1068,
+        ratedGames: 4,
+      });
+      await ratingAggregate.insert(ctx, (await ctx.db.get("ratings", ratingId))!);
+    });
+
+    await t.mutation(internal.bots.seed, {});
+    const afterRebalance = await t.run(async (ctx) => ({
+      player: await ctx.db.get("players", tillyId),
+      rating: await ctx.db
+        .query("ratings")
+        .withIndex("by_playerId", (q) => q.eq("playerId", tillyId))
+        .unique(),
+      countAtNewRating: await ratingAggregate.count(ctx, {
+        bounds: {
+          lower: { key: BOTS[1].rating, inclusive: true },
+          upper: { key: BOTS[1].rating, inclusive: true },
+        },
+      }),
+    }));
+    expect(afterRebalance.player?.rating).toBe(BOTS[1].rating);
+    expect(afterRebalance.rating?.rating).toBe(BOTS[1].rating);
+    expect(afterRebalance.rating?.ratedGames).toBe(4);
+    expect(afterRebalance.countAtNewRating).toBe(1);
   });
 
   test("pickForRating returns the nearest bot, ties to the weaker one", async () => {
