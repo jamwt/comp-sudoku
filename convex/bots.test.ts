@@ -85,7 +85,7 @@ describe("bots", () => {
   beforeEach(() => vi.useRealTimers());
   afterEach(() => vi.useRealTimers());
 
-  test("seed creates the roster once, with distinct names and ratings 800-2000", async () => {
+  test("seed creates the roster once, with distinct names and ratings 400-2000", async () => {
     const t = setup();
     const first = await t.mutation(internal.bots.seed, {});
     const second = await t.mutation(internal.bots.seed, {});
@@ -95,7 +95,7 @@ describe("bots", () => {
     expect(new Set(bots.map((b) => b.name)).size).toBe(6);
     const ratings = bots.map((b) => b.rating);
     expect(ratings).toEqual([...ratings].sort((a, b) => a - b));
-    expect(ratings[0]).toBe(800);
+    expect(ratings[0]).toBe(400);
     expect(ratings[5]).toBe(2000);
     const rows = await t.run(async (ctx) => ctx.db.query("players").collect());
     expect(rows.every((p) => p.kind === "bot" && p.userId === undefined)).toBe(
@@ -138,10 +138,10 @@ describe("bots", () => {
     const byKey = (key: string) => ids[BOTS.findIndex((b) => b.key === key)];
     expect(await pick(0)).toBe(byKey("pip"));
     expect(await pick(5000)).toBe(byKey("ada"));
-    expect(await pick(1300)).toBe(byKey("marlow"));
-    expect(await pick(1200)).toBe(byKey("marlow"));
-    expect(await pick(1175)).toBe(byKey("tilly"));
-    expect(await pick(1900)).toBe(byKey("vega"));
+    expect(await pick(1000)).toBe(byKey("marlow"));
+    expect(await pick(1200)).toBe(byKey("juniper"));
+    expect(await pick(850)).toBe(byKey("tilly"));
+    expect(await pick(1850)).toBe(byKey("vega"));
   });
 
   test("a practice match starts at once and the bot wins it through the normal entry path", async () => {

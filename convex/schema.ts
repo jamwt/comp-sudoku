@@ -164,6 +164,8 @@ export default defineSchema({
     form: v.number(),
     /** Guesses the server rejected, which the brain eliminates. */
     excluded: v.array(v.object({ cell: v.number(), digit: v.number() })),
+    /** Most recent cell claimed by this bot, used for human follow-up momentum. */
+    lastMove: v.optional(v.object({ cell: v.number(), digit: v.number() })),
   }).index("by_matchId_and_playerId", ["matchId", "playerId"]),
 
   notes: defineTable({
