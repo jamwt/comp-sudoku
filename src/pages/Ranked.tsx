@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
-import { MATCHMAKING } from "../../convex/gameConfig";
+import { MATCHMAKING, RATING } from "../../convex/gameConfig";
 import { ratingWindow } from "../../convex/lib/matchmaking";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -181,20 +181,32 @@ export function RankedPanel() {
 
               {mine.rank === null ? (
                 <span className="rounded-lg bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
-                  Unranked · play 1 ranked race
+                  Unranked · {RATING.calibrationGames} calibration games
                 </span>
               ) : (
                 <>
                   <span className="rounded-lg border border-ink/30 bg-[#DBEAFE] px-2 py-1 font-mono text-xs font-bold tabular-nums text-[#1D4ED8] dark:bg-[#19355E] dark:text-[#7DD3FC]">
                     #{mine.rank} / {mine.total}
                   </span>
-                  <span className="rounded-lg border border-ink/30 bg-accent px-2 py-1 font-mono text-xs font-semibold tabular-nums text-foreground">
-                    Top {Math.max(1, 100 - mine.percentile)}%
-                  </span>
-                  <span className="text-xs font-medium text-muted-foreground tabular-nums">
-                    {mine.ratedGames}{" "}
-                    {mine.ratedGames === 1 ? "game" : "games"}
-                  </span>
+                  {mine.ratedGames < RATING.calibrationGames ? (
+                    <span
+                      title="Ratings adjust faster during your first 10 ranked games so you reach fair matches quickly."
+                      className="rounded-lg border border-ink/40 bg-primary/80 px-2 py-1 font-mono text-xs font-bold tabular-nums text-primary-foreground"
+                      data-testid="calibrating-badge"
+                    >
+                      Calibrating · {mine.ratedGames}/{RATING.calibrationGames}
+                    </span>
+                  ) : (
+                    <>
+                      <span className="rounded-lg border border-ink/30 bg-accent px-2 py-1 font-mono text-xs font-semibold tabular-nums text-foreground">
+                        Top {Math.max(1, 100 - mine.percentile)}%
+                      </span>
+                      <span className="text-xs font-medium text-muted-foreground tabular-nums">
+                        {mine.ratedGames}{" "}
+                        {mine.ratedGames === 1 ? "game" : "games"}
+                      </span>
+                    </>
+                  )}
                 </>
               )}
             </div>

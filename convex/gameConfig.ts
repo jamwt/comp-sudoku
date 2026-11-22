@@ -203,7 +203,10 @@ export const BOT_RULES = {
 /** Elo ratings for rated (queue) matches. */
 export const RATING = {
   /** Rating of a player who has never finished a rated match. */
-  initial: 1200,
+  initial: 1000,
+  /** Early placement games that move Elo faster so new players reach fair matches quickly. */
+  calibrationGames: 10,
+  kCalibration: 120,
   /** Rated games played with the provisional K before switching to the established K. */
   provisionalGames: 20,
   kProvisional: 40,
