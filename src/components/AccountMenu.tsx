@@ -7,6 +7,7 @@ import {
 } from "@convex-dev/auth/methods/google/react";
 import { api } from "../../convex/_generated/api";
 import { PlayerAvatar } from "@/components/Avatars";
+import { NicknameDialog } from "@/components/NicknameDialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -174,6 +175,7 @@ export function AccountMenu() {
   const { signOut } = useAuthActions();
   const [signingOut, setSigningOut] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  const [nicknameOpen, setNicknameOpen] = useState(false);
 
   if (!me) return null;
 
@@ -188,87 +190,111 @@ export function AccountMenu() {
   }
 
   return (
-    <DropdownMenu
-      onOpenChange={(open) => {
-        if (open) {
-          sound.playTap();
-          setStartError(null);
-        }
-      }}
-    >
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          title={me.isGuest ? `${me.name} (Guest) — Sign in` : me.name}
-          data-testid="account-menu-trigger"
-          className="toy-key inline-flex h-9 items-center gap-2 rounded-xl bg-secondary/85 px-2 text-xs font-bold text-foreground hover:bg-accent sm:px-2.5"
-        >
-          <UserAvatar name={me.name} avatarUrl={me.avatarUrl} size="xs" />
-          <span
-            className="hidden max-w-[116px] truncate sm:inline"
-            data-testid="player-name"
-          >
-            {me.name}
-          </span>
-          {me.isGuest ? (
-            <span className="rounded-md border border-ink/40 bg-primary px-1.5 py-0.5 font-mono text-[10px] font-bold text-primary-foreground">
-              Sign in
-            </span>
-          ) : (
-            <GoogleIcon className="hidden h-3.5 w-3.5 sm:inline-block" />
-          )}
-        </button>
-      </DropdownMenuTrigger>
-
-      <DropdownMenuContent
-        align="end"
-        className="w-64 rounded-2xl border-2 border-ink bg-card p-2 shadow-toy-md"
+    <>
+      <DropdownMenu
+        onOpenChange={(open) => {
+          if (open) {
+            sound.playTap();
+            setStartError(null);
+          }
+        }}
       >
-        <div className="flex items-center gap-2.5 px-2 py-2">
-          <UserAvatar name={me.name} avatarUrl={me.avatarUrl} size="sm" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-display text-sm font-bold text-foreground">
-              {me.name}
-            </p>
-            <p className="truncate text-[11px] font-medium text-muted-foreground">
-              {me.isGuest ? "Guest account" : (me.email ?? "Google account")}
-            </p>
-          </div>
-        </div>
-
-        <DropdownMenuSeparator className="bg-ink/15" />
-
-        {me.isGuest ? (
-          <div className="space-y-2 p-1.5">
-            <p className="text-[11px] font-medium leading-snug text-muted-foreground">
-              Sign in with Google to keep your profile and ranked Elo across devices.
-            </p>
-            <GoogleSignInButton
-              className="w-full"
-              size="sm"
-              variant="default"
-              onError={setStartError}
-            />
-            {startError && (
-              <p className="text-[11px] font-semibold text-destructive">
-                {startError}
-              </p>
-            )}
-          </div>
-        ) : (
-          <DropdownMenuItem
-            disabled={signingOut}
-            onSelect={(e) => {
-              e.preventDefault();
-              void onSignOut();
-            }}
-            data-testid="sign-out"
-            className="mt-1 cursor-pointer rounded-xl font-display text-xs font-bold text-destructive focus:bg-destructive/15 focus:text-destructive"
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            title={me.isGuest ? `${me.name} (Guest) — Sign in` : me.name}
+            data-testid="account-menu-trigger"
+            className="toy-key inline-flex h-9 items-center gap-2 rounded-xl bg-secondary/85 px-2 text-xs font-bold text-foreground hover:bg-accent sm:px-2.5"
           >
-            {signingOut ? "Signing out…" : "Sign out"}
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+            <UserAvatar name={me.name} avatarUrl={me.avatarUrl} size="xs" />
+            <span
+              className="hidden max-w-[116px] truncate sm:inline"
+              data-testid="player-name"
+            >
+              {me.name}
+            </span>
+            {me.isGuest ? (
+              <span className="rounded-md border border-ink/40 bg-primary px-1.5 py-0.5 font-mono text-[10px] font-bold text-primary-foreground">
+                Sign in
+              </span>
+            ) : (
+              <GoogleIcon className="hidden h-3.5 w-3.5 sm:inline-block" />
+            )}
+          </button>
+        </DropdownMenuTrigger>
+
+        <DropdownMenuContent
+          align="end"
+          className="w-64 rounded-2xl border-2 border-ink bg-card p-2 shadow-toy-md"
+        >
+          <div className="flex items-center gap-2.5 px-2 py-2">
+            <UserAvatar name={me.name} avatarUrl={me.avatarUrl} size="sm" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-display text-sm font-bold text-foreground">
+                {me.name}
+              </p>
+              <p className="truncate text-[11px] font-medium text-muted-foreground">
+                {me.isGuest ? "Guest account" : (me.email ?? "Google account")}
+              </p>
+            </div>
+          </div>
+
+          <DropdownMenuSeparator className="bg-ink/15" />
+
+          {me.isGuest ? (
+            <div className="space-y-2 p-1.5">
+              <p className="text-[11px] font-medium leading-snug text-muted-foreground">
+                Sign in with Google to claim an exclusive nickname and save your
+                ranked Elo across devices.
+              </p>
+              <GoogleSignInButton
+                className="w-full"
+                size="sm"
+                variant="default"
+                onError={setStartError}
+              />
+              {startError && (
+                <p className="text-[11px] font-semibold text-destructive">
+                  {startError}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="mt-1 space-y-1">
+              <DropdownMenuItem
+                onSelect={() => {
+                  sound.playTap();
+                  setNicknameOpen(true);
+                }}
+                data-testid="menu-nickname"
+                className="cursor-pointer rounded-xl font-display text-xs font-bold text-foreground focus:bg-accent"
+              >
+                {me.nickname ? "Change nickname" : "Choose nickname"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={signingOut}
+                onSelect={(e) => {
+                  e.preventDefault();
+                  void onSignOut();
+                }}
+                data-testid="sign-out"
+                className="cursor-pointer rounded-xl font-display text-xs font-bold text-destructive focus:bg-destructive/15 focus:text-destructive"
+              >
+                {signingOut ? "Signing out…" : "Sign out"}
+              </DropdownMenuItem>
+            </div>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {!me.isGuest && (
+        <NicknameDialog
+          open={nicknameOpen}
+          onOpenChange={setNicknameOpen}
+          currentNickname={me.nickname}
+          currentName={me.name}
+        />
+      )}
+    </>
   );
 }

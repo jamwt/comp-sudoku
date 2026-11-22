@@ -23,15 +23,15 @@ describe("elo", () => {
   test("a win between new equal players moves each by calibration K/2", () => {
     const [a, b] = rateMatch(fresh, fresh, 0, RATING);
     expect(a).toEqual({
-      before: 1000,
-      after: 1060,
+      before: 500,
+      after: 560,
       delta: 60,
       k: 120,
       score: 1,
     });
     expect(b).toEqual({
-      before: 1000,
-      after: 940,
+      before: 500,
+      after: 440,
       delta: -60,
       k: 120,
       score: 0,
@@ -80,7 +80,7 @@ describe("elo", () => {
   });
 
   test("a struggling beginner drops rapidly during calibration", () => {
-    let beginner = { rating: RATING.initial, ratedGames: 0 };
+    let beginner = { rating: 1000, ratedGames: 0 };
     // Losing 6 games against 1000-rated opponents drops them into ~650-700 range
     for (let i = 0; i < 6; i++) {
       const [change] = rateMatch(
@@ -92,6 +92,20 @@ describe("elo", () => {
       beginner = { rating: change.after, ratedGames: beginner.ratedGames + 1 };
     }
     expect(beginner.rating).toBeLessThan(760);
+  });
+
+  test("a strong newcomer starting at 500 climbs rapidly during calibration", () => {
+    let newcomer = { rating: RATING.initial, ratedGames: 0 };
+    for (let i = 0; i < 6; i++) {
+      const [change] = rateMatch(
+        newcomer,
+        { rating: 700, ratedGames: 30 },
+        0,
+        RATING,
+      );
+      newcomer = { rating: change.after, ratedGames: newcomer.ratedGames + 1 };
+    }
+    expect(newcomer.rating).toBeGreaterThan(850);
   });
 
   test("an upset pays more than an expected win", () => {

@@ -5,12 +5,12 @@ import { api } from "../../convex/_generated/api";
 import { MATCHMAKING, RATING } from "../../convex/gameConfig";
 import { ratingWindow } from "../../convex/lib/matchmaking";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   GoogleIcon,
   GoogleSignInButton,
   UserAvatar,
 } from "@/components/AccountMenu";
+import { NicknameDialog } from "@/components/NicknameDialog";
 import { matchPath, navigate } from "@/lib/router";
 import { useNow } from "@/lib/useNow";
 import { sound } from "@/lib/sound";
@@ -23,15 +23,11 @@ function formatElapsed(ms: number) {
 /** Your player cartridge profile plus the ranked matchmaking queue. */
 export function RankedPanel() {
   const me = useQuery(api.players.me);
-  const rename = useMutation(api.players.rename);
   const mine = useQuery(api.ratings.mine);
   const status = useQuery(api.queue.status);
   const join = useMutation(api.queue.join);
   const cancel = useMutation(api.queue.cancel);
-  const [editingName, setEditingName] = useState(false);
-  const [draftName, setDraftName] = useState("");
-  const [savingName, setSavingName] = useState(false);
-  const [nameError, setNameError] = useState<string | null>(null);
+  const [nicknameOpen, setNicknameOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
 
@@ -50,28 +46,6 @@ export function RankedPanel() {
       );
     } finally {
       setJoining(false);
-    }
-  }
-
-  async function onSaveName(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = draftName.trim();
-    if (!trimmed) {
-      setNameError("Enter at least 1 character.");
-      return;
-    }
-    setNameError(null);
-    setSavingName(true);
-    try {
-      await rename({ name: trimmed });
-      sound.playPop();
-      setEditingName(false);
-    } catch (err) {
-      setNameError(
-        err instanceof ConvexError ? String(err.data) : "Could not save name.",
-      );
-    } finally {
-      setSavingName(false);
     }
   }
 
@@ -118,68 +92,32 @@ export function RankedPanel() {
             </a>
           </div>
 
-          {editingName ? (
-            <form onSubmit={(e) => void onSaveName(e)} className="mt-2 space-y-1.5">
-              <div className="flex gap-1.5">
-                <Input
-                  id="name"
-                  aria-label="Your name"
-                  value={draftName}
-                  onChange={(e) => setDraftName(e.target.value)}
-                  maxLength={24}
-                  autoFocus
-                  className="h-9"
-                />
-                <Button
-                  type="submit"
-                  size="sm"
-                  className="h-9 shrink-0"
-                  disabled={savingName}
-                >
-                  {savingName ? "…" : "Save"}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-9 shrink-0 px-2.5"
-                  onClick={() => {
-                    setEditingName(false);
-                    setNameError(null);
-                  }}
-                >
-                  ✕
-                </Button>
-              </div>
-              {nameError && (
-                <p className="text-xs font-medium text-destructive">
-                  {nameError}
-                </p>
-              )}
-            </form>
-          ) : (
-            <div className="mt-1 flex items-center gap-2">
-              <h2 className="truncate font-display text-xl font-bold tracking-tight text-foreground">
-                {displayName}
-              </h2>
-              {me && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    sound.playTap();
-                    setDraftName(me.name);
-                    setNameError(null);
-                    setEditingName(true);
-                  }}
-                  aria-label="Edit display name"
-                  title="Edit display name"
-                  className="inline-flex h-6 items-center gap-1 rounded-lg border border-ink/40 bg-secondary/80 px-2 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  Edit
-                </button>
-              )}
-            </div>
-          )}
+          <div className="mt-1 flex items-center gap-2">
+            <h2 className="truncate font-display text-xl font-bold tracking-tight text-foreground">
+              {displayName}
+            </h2>
+            {me && !me.isGuest && (
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playTap();
+                  setNicknameOpen(true);
+                }}
+                data-testid="edit-nickname"
+                aria-label={
+                  me.nickname ? "Change nickname" : "Choose nickname"
+                }
+                title={me.nickname ? "Change nickname" : "Choose nickname"}
+                className={
+                  me.nickname
+                    ? "inline-flex h-6 shrink-0 items-center gap-1 rounded-lg border border-ink/40 bg-secondary/80 px-2 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    : "inline-flex h-6 shrink-0 items-center gap-1 rounded-lg border border-ink/50 bg-primary/85 px-2 text-[11px] font-bold text-primary-foreground transition-colors hover:bg-primary"
+                }
+              >
+                {me.nickname ? "Edit" : "Choose nickname"}
+              </button>
+            )}
+          </div>
 
           {/* Elo + Rank + Percentile readout */}
           {mine && (
@@ -235,7 +173,7 @@ export function RankedPanel() {
       {me?.isGuest && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ink/30 bg-secondary/60 px-3 py-2">
           <p className="text-xs font-medium text-muted-foreground">
-            Save your rating across devices
+            Claim a nickname & save your Elo
           </p>
           <GoogleSignInButton
             label="Sign in with Google"
@@ -306,6 +244,15 @@ export function RankedPanel() {
           </p>
         )}
       </div>
+
+      {me && !me.isGuest && (
+        <NicknameDialog
+          open={nicknameOpen}
+          onOpenChange={setNicknameOpen}
+          currentNickname={me.nickname}
+          currentName={me.name}
+        />
+      )}
     </section>
   );
 }

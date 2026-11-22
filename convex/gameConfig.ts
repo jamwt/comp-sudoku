@@ -203,7 +203,7 @@ export const BOT_RULES = {
 /** Elo ratings for rated (queue) matches. */
 export const RATING = {
   /** Rating of a player who has never finished a rated match. */
-  initial: 1000,
+  initial: 500,
   /** Early placement games that move Elo faster so new players reach fair matches quickly. */
   calibrationGames: 10,
   kCalibration: 120,
@@ -215,6 +215,20 @@ export const RATING = {
   drawScore: 0.5,
   /** Most rows the leaderboard query returns. */
   leaderboardMax: 100,
+};
+
+/** Exclusive, moderated handles for Google-authenticated players. */
+export const NICKNAME = {
+  minLength: 5,
+  maxLength: 20,
+  /** Jev Decisions model served via Convex AI Gateway. */
+  moderationModel: "typesafe/jev-1.14",
+  /** Reject when any moderation question scores at or above this probability (0–1). */
+  moderationRejectThreshold: 0.5,
+  /** Timeout for the AI Gateway moderation call. */
+  moderationTimeoutMs: 10_000,
+  /** Per-player token bucket on nickname change attempts. */
+  setRateLimit: { rate: 5, periodMs: 10 * 60_000, capacity: 5 },
 };
 
 /** The ranked matchmaking queue. */
