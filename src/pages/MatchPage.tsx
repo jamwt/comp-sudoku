@@ -16,7 +16,7 @@ import { PlayerAvatar } from "@/components/Avatars";
 import { NinepopMark } from "@/components/NinepopLogo";
 import { MatchSummaryCharts } from "@/components/MatchSummaryCharts";
 import { matchPath, navigate } from "@/lib/router";
-import { useNow } from "@/lib/useNow";
+import { useMatchClock } from "@/lib/useNow";
 import { cn, formatDuration } from "@/lib/utils";
 import { sound } from "@/lib/sound";
 
@@ -248,7 +248,19 @@ function Game({
   const prevStatusRef = useRef<MatchView["status"]>(match.status);
 
   const startsAt = match.startsAt ?? 0;
-  const now = useNow(match.status === "active");
+  const meParticipant = you !== null ? match.participants[you] : null;
+  const idleWarningAt =
+    match.status === "active" && meParticipant
+      ? Math.max(meParticipant.lastActiveAt, startsAt) +
+        RULES.idleForfeitMs -
+        10_000
+      : null;
+  const now = useMatchClock({
+    active: match.status === "active",
+    startsAt,
+    lockUntil,
+    idleWarningAt,
+  });
   const countdown = startsAt - now;
   const countdownStep = countdown > 0 ? Math.ceil(countdown / 1000) : 0;
   const locked = now < lockUntil;
@@ -444,70 +456,81 @@ function Game({
     [note, place],
   );
 
-  useEffect(() => {
-    if (helpOpen) return;
-    function onKey(e: KeyboardEvent) {
-      if (
-        isEditableTarget(e.target) ||
-        e.metaKey ||
-        e.ctrlKey ||
-        e.altKey
-      )
-        return;
-      const key = e.key.toLowerCase();
-      const digitMatch = /^(?:Digit|Numpad)([1-9])$/.exec(e.code);
-      if (digitMatch) {
-        e.preventDefault();
-        const digit = Number(digitMatch[1]);
-        pulseKey(String(digit));
-        if (digitFirst && !e.shiftKey) {
-          sound.playTap();
-          setArmedDigit((d) => (d === digit ? null : digit));
-        } else {
-          act(cursor, digit, e.shiftKey || notesMode);
-        }
-        return;
-      }
-      const move = MOVES[key];
-      if (move) {
-        e.preventDefault();
-        const row = (Math.floor(cursor / 9) + move[0] + 9) % 9;
-        const col = ((cursor % 9) + move[1] + 9) % 9;
-        setCursor(row * 9 + col);
-        return;
-      }
-      if (key === "n") {
-        pulseKey("notes");
+  const onKeyRef = useRef<(e: KeyboardEvent) => void>(() => {});
+  onKeyRef.current = (e: KeyboardEvent) => {
+    if (
+      helpOpen ||
+      isEditableTarget(e.target) ||
+      e.metaKey ||
+      e.ctrlKey ||
+      e.altKey
+    )
+      return;
+    const key = e.key.toLowerCase();
+    const digitMatch = /^(?:Digit|Numpad)([1-9])$/.exec(e.code);
+    if (digitMatch) {
+      e.preventDefault();
+      const digit = Number(digitMatch[1]);
+      pulseKey(String(digit));
+      if (digitFirst && !e.shiftKey) {
         sound.playTap();
-        setNotesMode((m) => !m);
-      } else if (key === "f") {
-        pulseKey("digitFirst");
-        sound.playTap();
-        setDigitFirst((m) => !m);
-      } else if (key === "escape") {
-        setArmedDigit(null);
-      } else if (key === "backspace" || key === "delete") {
-        e.preventDefault();
-        pulseKey("clear");
-        clear(cursor);
-      } else if (
-        (key === "enter" || key === " ") &&
-        digitFirst &&
-        armedDigit !== null
-      ) {
-        e.preventDefault();
-        pulseKey(String(armedDigit));
-        act(cursor, armedDigit, notesMode);
+        setArmedDigit((d) => (d === digit ? null : digit));
+      } else {
+        act(cursor, digit, e.shiftKey || notesMode);
       }
+      return;
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [helpOpen, cursor, digitFirst, notesMode, armedDigit, act, clear, pulseKey]);
+    const move = MOVES[key];
+    if (move) {
+      e.preventDefault();
+      const row = (Math.floor(cursor / 9) + move[0] + 9) % 9;
+      const col = ((cursor % 9) + move[1] + 9) % 9;
+      setCursor(row * 9 + col);
+      return;
+    }
+    if (key === "n") {
+      pulseKey("notes");
+      sound.playTap();
+      setNotesMode((m) => !m);
+    } else if (key === "f") {
+      pulseKey("digitFirst");
+      sound.playTap();
+      setDigitFirst((m) => !m);
+    } else if (key === "escape") {
+      setArmedDigit(null);
+    } else if (key === "backspace" || key === "delete") {
+      e.preventDefault();
+      pulseKey("clear");
+      clear(cursor);
+    } else if (
+      (key === "enter" || key === " ") &&
+      digitFirst &&
+      armedDigit !== null
+    ) {
+      e.preventDefault();
+      pulseKey(String(armedDigit));
+      act(cursor, armedDigit, notesMode);
+    }
+  };
 
-  const onCellClick = (cell: number) => {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => onKeyRef.current(e);
+    window.addEventListener("keydown", handler);
+    return () => {
+      window.removeEventListener("keydown", handler);
+      clearTimeout(flashTimer.current);
+      clearTimeout(keyTimer.current);
+    };
+  }, []);
+
+  const onCellClickRef = useRef<(cell: number) => void>(() => {});
+  onCellClickRef.current = (cell: number) => {
     setCursor(cell);
     if (digitFirst && armedDigit !== null) act(cell, armedDigit, notesMode);
   };
+  const onCellClick = useCallback((cell: number) => {
+    onCellClickRef.current(cell);
+  }, []);
 
   const onPadDigit = (digit: number) => {
     pulseKey(String(digit));

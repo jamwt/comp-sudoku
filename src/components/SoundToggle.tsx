@@ -12,8 +12,10 @@ export function SoundToggle() {
       title={enabled ? "Sound on" : "Sound off"}
       data-testid="sound-toggle"
       className={cn(
-        "toy-key inline-flex h-9 w-9 items-center justify-center rounded-xl bg-card text-foreground hover:bg-accent",
-        !enabled && "opacity-65",
+        "toy-key inline-flex h-9 w-9 items-center justify-center rounded-xl transition-colors",
+        enabled
+          ? "bg-card text-foreground hover:bg-accent"
+          : "bg-muted/80 text-muted-foreground opacity-75 hover:bg-accent hover:text-foreground",
       )}
     >
       {enabled ? (
