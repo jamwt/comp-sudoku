@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { PEERS } from "../../convex/lib/sudoku/grid";
 import type { Slot } from "../../convex/lib/engine";
 import { cn } from "@/lib/utils";
@@ -19,8 +19,8 @@ type BoardProps = {
   onCellClick: (cell: number) => void;
 };
 
-export function Board(props: BoardProps) {
-  const peers = new Set(PEERS[props.cursor]);
+export const Board = memo(function Board(props: BoardProps) {
+  const peers = useMemo(() => new Set(PEERS[props.cursor]), [props.cursor]);
   return (
     <div className="rounded-2xl border-2 border-ink bg-card p-1.5 shadow-toy sm:p-2">
       <div
@@ -51,7 +51,7 @@ export function Board(props: BoardProps) {
       </div>
     </div>
   );
-}
+});
 
 type CellProps = {
   cell: number;
