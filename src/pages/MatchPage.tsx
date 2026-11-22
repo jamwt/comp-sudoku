@@ -16,7 +16,7 @@ import { PlayerAvatar } from "@/components/Avatars";
 import { NinepopMark } from "@/components/NinepopLogo";
 import { matchPath, navigate } from "@/lib/router";
 import { useNow } from "@/lib/useNow";
-import { cn } from "@/lib/utils";
+import { cn, formatDuration } from "@/lib/utils";
 import { sound } from "@/lib/sound";
 
 const MOVES: Record<string, [number, number]> = {
@@ -1051,9 +1051,9 @@ const REASONS: Record<string, (loser: string) => string> = {
   clinch: () => "Clinched: held more than half of the open cells.",
   resign: (loser) => `${loser} resigned.`,
   forfeit_idle: (loser) =>
-    `${loser} was idle for ${RULES.idleForfeitMs / 1000}s.`,
+    `${loser} was idle for ${formatDuration(RULES.idleForfeitMs)}.`,
   forfeit_disconnect: (loser) =>
-    `${loser} disconnected for ${RULES.disconnectForfeitMs / 1000}s.`,
+    `${loser} disconnected for ${formatDuration(RULES.disconnectForfeitMs)}.`,
 };
 
 function ResultOverlay({
