@@ -13,7 +13,7 @@ export const RULES = {
   /** Points deducted for a wrong digit (0 disables the point penalty). */
   wrongEntryPointPenalty: 0,
   /** A player who makes no entry or note for this long forfeits. */
-  idleForfeitMs: 60_000,
+  idleForfeitMs: 180_000,
   /** A player whose presence is offline for this long forfeits. */
   disconnectForfeitMs: 30_000,
   /** Client presence heartbeat; a silent client goes offline after 2.5 beats. */

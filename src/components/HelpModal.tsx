@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { NinepopMark } from "@/components/NinepopLogo";
 import { sound } from "@/lib/sound";
+import { formatDuration } from "@/lib/utils";
 
 type HelpModalProps = {
   open: boolean;
@@ -101,8 +102,8 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
                 </p>
                 <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                   Boards unlock after a {RULES.countdownMs / 1000}s countdown.
-                  Staying idle for {RULES.idleForfeitMs / 1000}s or going
-                  offline for {RULES.disconnectForfeitMs / 1000}s forfeits.
+                  Staying idle for {formatDuration(RULES.idleForfeitMs)} or going
+                  offline for {formatDuration(RULES.disconnectForfeitMs)} forfeits.
                 </p>
               </div>
             </div>
