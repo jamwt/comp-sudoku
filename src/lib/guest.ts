@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useConvex, useConvexAuth } from "convex/react";
+import { useAuthActions } from "@convex-dev/auth/react";
 import {
   useSignInWithUsernamePassword,
   useSignUpWithUsernamePassword,
@@ -7,6 +8,7 @@ import {
 import { api } from "../../convex/_generated/api";
 import {
   clearOAuthHandoff,
+  consumeDisplacedRefreshToken,
   consumeLocalOAuthHandoff,
   oauthHandoffLeaseKey,
   oauthHandoffRemainingMs,
@@ -40,6 +42,7 @@ function loadCredentials(): Credentials | null {
 export function useGuestSession(): { ready: boolean; error: string | null } {
   const convex = useConvex();
   const { isLoading, isAuthenticated } = useConvexAuth();
+  const { setSession } = useAuthActions();
   const { signIn } = useSignInWithUsernamePassword(api.auth);
   const { signUp } = useSignUpWithUsernamePassword(api.auth);
   const started = useRef(false);
@@ -50,11 +53,18 @@ export function useGuestSession(): { ready: boolean; error: string | null } {
     if (isAuthenticated) {
       started.current = false;
       clearOAuthHandoff(window.localStorage, convex.url);
+      const displaced = consumeDisplacedRefreshToken();
+      if (displaced) {
+        void convex
+          .mutation(api.auth.signOut, { refreshToken: displaced })
+          .catch(() => {});
+      }
       return;
     }
     if (isLoading || started.current) return;
 
-    if (consumeLocalOAuthHandoff()) {
+    const failedLocalHandoff = consumeLocalOAuthHandoff();
+    if (failedLocalHandoff) {
       clearOAuthHandoff(window.localStorage, convex.url);
     } else {
       const remaining = oauthHandoffRemainingMs(
@@ -77,7 +87,23 @@ export function useGuestSession(): { ready: boolean; error: string | null } {
     }
 
     started.current = true;
+    const suspendedRefresh = failedLocalHandoff
+      ? consumeDisplacedRefreshToken()
+      : null;
     void (async () => {
+      if (suspendedRefresh) {
+        try {
+          const refreshed = await convex.mutation(api.auth.refreshSession, {
+            refreshToken: suspendedRefresh,
+          });
+          if (refreshed.kind === "rotated") {
+            await setSession(refreshed.tokens);
+            return;
+          }
+        } catch {
+          // Fall through to guest session restoration below.
+        }
+      }
       const saved = loadCredentials();
       if (saved) {
         const result = await signIn(saved);
@@ -102,7 +128,15 @@ export function useGuestSession(): { ready: boolean; error: string | null } {
         started.current = false;
       }
     })();
-  }, [convex.url, isLoading, isAuthenticated, signIn, signUp, handoffTick]);
+  }, [
+    convex,
+    isLoading,
+    isAuthenticated,
+    setSession,
+    signIn,
+    signUp,
+    handoffTick,
+  ]);
 
   return { ready: isAuthenticated, error };
 }

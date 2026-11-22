@@ -10,18 +10,11 @@ import "./index.css";
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
-const oauthHandoff = prepareOAuthCallback({
+prepareOAuthCallback({
   href: window.location.href,
   namespace: convex.url,
   storage: window.localStorage,
 });
-if (oauthHandoff.previousRefreshToken) {
-  void convex
-    .mutation(api.auth.signOut, {
-      refreshToken: oauthHandoff.previousRefreshToken,
-    })
-    .catch(() => {});
-}
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

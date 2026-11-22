@@ -9,6 +9,7 @@ import { oauth } from "@convex-dev/auth/methods/oauth/react";
 import {
   OAUTH_HANDOFF_TTL_MS,
   clearOAuthHandoff,
+  consumeDisplacedRefreshToken,
   consumeLocalOAuthHandoff,
   oauthHandoffLeaseKey,
   oauthHandoffRemainingMs,
@@ -21,6 +22,12 @@ const JWT_KEY = `${JWT_STORAGE_KEY}_${SUFFIX}`;
 const REFRESH_KEY = `${REFRESH_TOKEN_STORAGE_KEY}_${SUFFIX}`;
 const OAUTH_FLOW_KEY = `__convexAuthProvider_oauth_flow_${SUFFIX}`;
 
+const VALID_PENDING_FLOW = JSON.stringify({
+  providerName: "google",
+  state: "state-1",
+  completeSignIn: "auth:completeSignInWithGoogle",
+});
+
 function waitFor(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -30,18 +37,11 @@ describe("prepareOAuthCallback", () => {
     vi.unstubAllGlobals();
   });
 
-  test("clears existing guest tokens before AuthClient.init so startup refresh cannot clobber the Google session", async () => {
+  test("suspends existing guest tokens before AuthClient.init when a matching pending flow exists", async () => {
     const storage = new InMemoryStorage();
     storage.setItem(JWT_KEY, "GUEST_JWT");
     storage.setItem(REFRESH_KEY, "GUEST_REFRESH");
-    storage.setItem(
-      OAUTH_FLOW_KEY,
-      JSON.stringify({
-        providerName: "google",
-        state: "state-1",
-        completeSignIn: "auth:completeSignInWithGoogle",
-      }),
-    );
+    storage.setItem(OAUTH_FLOW_KEY, VALID_PENDING_FLOW);
 
     const callbackHref = "https://ninepop.gg/?convexAuthCode=valid-code";
     const handoff = prepareOAuthCallback({
@@ -60,6 +60,8 @@ describe("prepareOAuthCallback", () => {
     expect(oauthHandoffRemainingMs(storage, NAMESPACE, 1_000)).toBe(
       OAUTH_HANDOFF_TTL_MS,
     );
+    expect(consumeDisplacedRefreshToken()).toBe("GUEST_REFRESH");
+    expect(consumeDisplacedRefreshToken()).toBeNull();
 
     vi.stubGlobal("window", {
       location: { href: callbackHref },
@@ -107,9 +109,6 @@ describe("prepareOAuthCallback", () => {
     });
 
     await client.init();
-    // While completeSignInWithGoogle is still in flight, the client stays
-    // loading + unauthenticated so ConvexProviderWithAuth never triggers a
-    // guest startup refresh.
     expect(client.getSnapshot()).toEqual({
       isLoading: true,
       isAuthenticated: false,
@@ -123,6 +122,50 @@ describe("prepareOAuthCallback", () => {
       isLoading: false,
       isAuthenticated: true,
       token: "GOOGLE_JWT",
+    });
+    expect(storage.getItem(JWT_KEY)).toBe("GOOGLE_JWT");
+    expect(storage.getItem(REFRESH_KEY)).toBe("GOOGLE_REFRESH");
+  });
+
+  test("preserves an existing Google session when ?convexAuthCode= arrives with no matching pending flow", () => {
+    const storage = new InMemoryStorage();
+    storage.setItem(JWT_KEY, "GOOGLE_JWT");
+    storage.setItem(REFRESH_KEY, "GOOGLE_REFRESH");
+
+    const handoff = prepareOAuthCallback({
+      href: "https://ninepop.gg/?convexAuthCode=bogus",
+      namespace: NAMESPACE,
+      storage,
+      now: 1_000,
+    });
+
+    expect(handoff).toEqual({
+      handlingCallback: false,
+      previousRefreshToken: null,
+    });
+    expect(storage.getItem(JWT_KEY)).toBe("GOOGLE_JWT");
+    expect(storage.getItem(REFRESH_KEY)).toBe("GOOGLE_REFRESH");
+    expect(oauthHandoffRemainingMs(storage, NAMESPACE, 1_000)).toBe(0);
+    expect(consumeLocalOAuthHandoff()).toBe(false);
+    expect(consumeDisplacedRefreshToken()).toBeNull();
+  });
+
+  test("preserves existing session when pending flow JSON is malformed", () => {
+    const storage = new InMemoryStorage();
+    storage.setItem(JWT_KEY, "GOOGLE_JWT");
+    storage.setItem(REFRESH_KEY, "GOOGLE_REFRESH");
+    storage.setItem(OAUTH_FLOW_KEY, "{not-json");
+
+    const handoff = prepareOAuthCallback({
+      href: "https://ninepop.gg/?convexAuthCode=bogus",
+      namespace: NAMESPACE,
+      storage,
+      now: 1_000,
+    });
+
+    expect(handoff).toEqual({
+      handlingCallback: false,
+      previousRefreshToken: null,
     });
     expect(storage.getItem(JWT_KEY)).toBe("GOOGLE_JWT");
     expect(storage.getItem(REFRESH_KEY)).toBe("GOOGLE_REFRESH");
@@ -153,6 +196,7 @@ describe("prepareOAuthCallback", () => {
 
   test("tracks local handoff consumption and cross-tab lease expiration", () => {
     const storage = new InMemoryStorage();
+    storage.setItem(OAUTH_FLOW_KEY, VALID_PENDING_FLOW);
     prepareOAuthCallback({
       href: "https://ninepop.gg/?convexAuthCode=abc",
       namespace: NAMESPACE,
