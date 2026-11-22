@@ -6,7 +6,11 @@ import { MATCHMAKING, RATING } from "../../convex/gameConfig";
 import { ratingWindow } from "../../convex/lib/matchmaking";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PlayerAvatar } from "@/components/Avatars";
+import {
+  GoogleIcon,
+  GoogleSignInButton,
+  UserAvatar,
+} from "@/components/AccountMenu";
 import { matchPath, navigate } from "@/lib/router";
 import { useNow } from "@/lib/useNow";
 import { sound } from "@/lib/sound";
@@ -80,12 +84,25 @@ export function RankedPanel() {
     >
       {/* Top profile cartridge strip */}
       <div className="flex items-start gap-3.5">
-        <PlayerAvatar name={displayName} isBot={false} size="lg" />
+        <UserAvatar
+          name={displayName}
+          avatarUrl={me?.avatarUrl}
+          size="lg"
+        />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-ink/40 bg-secondary px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#2563EB] dark:bg-[#38BDF8]" />
-              Player Card
+              {me && !me.isGuest ? (
+                <>
+                  <GoogleIcon className="h-3 w-3" />
+                  Google
+                </>
+              ) : (
+                <>
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#2563EB] dark:bg-[#38BDF8]" />
+                  Guest
+                </>
+              )}
             </span>
             <a
               href="/leaderboard"
@@ -213,6 +230,21 @@ export function RankedPanel() {
           )}
         </div>
       </div>
+
+      {/* Guest upgrade prompt */}
+      {me?.isGuest && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ink/30 bg-secondary/60 px-3 py-2">
+          <p className="text-xs font-medium text-muted-foreground">
+            Save your rating across devices
+          </p>
+          <GoogleSignInButton
+            label="Sign in with Google"
+            size="sm"
+            variant="outline"
+            onError={setError}
+          />
+        </div>
+      )}
 
       {/* Queue wait OR Play Ranked CTA */}
       <div className="border-t-2 border-dashed border-border pt-4">

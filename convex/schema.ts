@@ -46,7 +46,12 @@ export const vParticipant = v.object({
 });
 
 export default defineSchema({
-  users: defineTable({}),
+  users: defineTable({
+    email: v.optional(v.string()),
+    name: v.optional(v.string()),
+    avatarUrl: v.optional(v.string()),
+    provider: v.optional(v.union(v.literal("guest"), v.literal("google"))),
+  }),
 
   players: defineTable({
     kind: v.union(v.literal("human"), v.literal("bot")),
