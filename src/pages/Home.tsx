@@ -22,9 +22,9 @@ const LEVEL_BADGE: Record<string, string> = {
     "bg-[#CCFBF1] text-[#115E59] dark:bg-[#134E4A] dark:text-[#99F6E4]",
   Novice:
     "bg-[#FEF3C7] text-[#92400E] dark:bg-[#78350F] dark:text-[#FDE68A]",
-  Intermediate:
+  Casual:
     "bg-[#BAE6FD] text-[#075985] dark:bg-[#0C4A6E] dark:text-[#BAE6FD]",
-  Advanced:
+  Club:
     "bg-[#DDD6FE] text-[#5B21B6] dark:bg-[#4C1D95] dark:text-[#DDD6FE]",
   Expert:
     "bg-[#FED7AA] text-[#9A3412] dark:bg-[#7C2D12] dark:text-[#FED7AA]",

@@ -13,7 +13,7 @@ import { type Slot } from "./lib/engine";
 import { botProfile, scheduleBotStep } from "./botRuns";
 import { createActiveMatch, submitEntry } from "./matches";
 import { requirePlayer } from "./players";
-import { resetLiveRating } from "./ratings";
+import { getRating, resetLiveRating } from "./ratings";
 import { rateLimiter } from "./rateLimits";
 import { vTier } from "./schema";
 
@@ -60,7 +60,7 @@ export const seed = internalMutation({
   },
 });
 
-/** Bots for the Practice vs AI picker, weakest first. */
+/** Bots for the Practice vs AI picker, ordered by live Elo (weakest first). */
 export const list = query({
   args: {},
   returns: v.array(
@@ -76,47 +76,51 @@ export const list = query({
       .query("players")
       .withIndex("by_kind_and_rating", (q) => q.eq("kind", "bot"))
       .take(MAX_BOTS);
-    return rows.flatMap((p) => {
-      const profile = botProfile(p);
-      return profile
-        ? [
-            {
-              _id: p._id,
-              name: p.name,
-              level: profile.level,
-              rating: p.rating ?? profile.rating,
-            },
-          ]
-        : [];
-    });
+    return (
+      await Promise.all(
+        rows.map(async (p) => {
+          const profile = botProfile(p);
+          if (!profile) return null;
+          const live = await getRating(ctx, p._id);
+          return {
+            _id: p._id,
+            name: p.name,
+            level: profile.level,
+            rating: live.rating,
+          };
+        }),
+      )
+    ).filter((b): b is NonNullable<typeof b> => b !== null);
   },
 });
 
 /**
- * Matchmaking fallback: the bot whose rating is nearest `rating`, or null if
+ * Matchmaking fallback: the bot whose live Elo is nearest `rating`, or null if
  * no bots are seeded. Ties go to the lower-rated bot.
  */
 export const pickForRating = internalQuery({
   args: { rating: v.number() },
   returns: v.union(v.id("players"), v.null()),
   handler: async (ctx, { rating }) => {
-    const above = await ctx.db
+    const rows = await ctx.db
       .query("players")
-      .withIndex("by_kind_and_rating", (q) =>
-        q.eq("kind", "bot").gte("rating", rating),
-      )
-      .first();
-    const below = await ctx.db
-      .query("players")
-      .withIndex("by_kind_and_rating", (q) =>
-        q.eq("kind", "bot").lt("rating", rating),
-      )
-      .order("desc")
-      .first();
-    const distance = (p: Doc<"players"> | null) =>
-      p?.rating === undefined ? Infinity : Math.abs(p.rating - rating);
-    if (!above && !below) return null;
-    return distance(below) <= distance(above) ? below!._id : above!._id;
+      .withIndex("by_kind_and_rating", (q) => q.eq("kind", "bot"))
+      .take(MAX_BOTS);
+    let best: { id: Doc<"players">["_id"]; rating: number; dist: number } | null =
+      null;
+    for (const p of rows) {
+      if (!botProfile(p)) continue;
+      const live = await getRating(ctx, p._id);
+      const dist = Math.abs(live.rating - rating);
+      if (
+        best === null ||
+        dist < best.dist ||
+        (dist === best.dist && live.rating < best.rating)
+      ) {
+        best = { id: p._id, rating: live.rating, dist };
+      }
+    }
+    return best?.id ?? null;
   },
 });
 

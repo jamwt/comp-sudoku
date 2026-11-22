@@ -22,7 +22,7 @@ import { pruneMatchNotes } from "./notes";
 import { currentPlayer, requirePlayer } from "./players";
 import { drawPuzzle } from "./puzzles";
 import { presence } from "./presence";
-import { applyRatedResult, ratingChangesFor } from "./ratings";
+import { applyRatedResult, getRating, ratingChangesFor } from "./ratings";
 import { rateLimiter } from "./rateLimits";
 import { classifyPlacement, parseGrid } from "./lib/sudoku";
 import { vEndReason, vMove, vTier } from "./schema";
@@ -115,11 +115,14 @@ export const get = query({
       match.participants.map(async (p) => {
         const player = await ctx.db.get("players", p.playerId);
         const profile = player && botProfile(player);
+        const liveBotRating = profile
+          ? (await getRating(ctx, p.playerId)).rating
+          : null;
         return {
           ...p,
           name: player?.name ?? "Unknown",
           bot: profile
-            ? { level: profile.level, rating: player.rating ?? profile.rating }
+            ? { level: profile.level, rating: liveBotRating ?? profile.rating }
             : null,
         };
       }),
