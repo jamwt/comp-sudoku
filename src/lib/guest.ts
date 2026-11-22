@@ -39,7 +39,11 @@ export function useGuestSession(): { ready: boolean; error: string | null } {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isLoading || isAuthenticated || started.current) return;
+    if (isAuthenticated) {
+      started.current = false;
+      return;
+    }
+    if (isLoading || started.current) return;
     started.current = true;
     void (async () => {
       const saved = loadCredentials();

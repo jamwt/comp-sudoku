@@ -1,6 +1,4 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "convex/react";
-import { api } from "../convex/_generated/api";
 import { useGuestSession } from "@/lib/guest";
 import { navigate, usePathname } from "@/lib/router";
 import { Home } from "@/pages/Home";
@@ -11,7 +9,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { SoundToggle } from "@/components/SoundToggle";
 import { HelpModal } from "@/components/HelpModal";
 import { NinepopMark, NinepopWordmark } from "@/components/NinepopLogo";
-import { PlayerAvatar } from "@/components/Avatars";
+import { AccountMenu, OAuthErrorBanner } from "@/components/AccountMenu";
 import { isHelpToggleEvent } from "@/lib/keyboard";
 import { cn } from "@/lib/utils";
 import { sound } from "@/lib/sound";
@@ -87,7 +85,7 @@ export default function App() {
               <span className="sr-only sm:not-sr-only">Leaderboard</span>
             </a>
 
-            {ready && <PlayerChip />}
+            {ready && <AccountMenu />}
 
             <button
               type="button"
@@ -119,6 +117,7 @@ export default function App() {
       {ready && <QueueWatcher path={path} />}
 
       <main className="container flex grow flex-col py-3 sm:py-5">
+        <OAuthErrorBanner />
         {error ? (
           <div className="toy-card mx-auto my-12 max-w-md p-6 text-center">
             <p className="font-display text-lg font-bold text-destructive">
@@ -155,21 +154,4 @@ export default function App() {
   );
 }
 
-function PlayerChip() {
-  const me = useQuery(api.players.me);
-  if (!me) return null;
-  return (
-    <div
-      className="hidden items-center gap-2 rounded-xl border-2 border-ink bg-secondary/75 px-2.5 py-1 md:inline-flex"
-      title={me.name}
-    >
-      <PlayerAvatar name={me.name} isBot={false} size="xs" />
-      <span
-        className="max-w-[120px] truncate text-xs font-bold text-foreground"
-        data-testid="player-name"
-      >
-        {me.name}
-      </span>
-    </div>
-  );
-}
+

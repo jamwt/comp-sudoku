@@ -25,11 +25,27 @@ export const me = query({
   args: {},
   returns: v.union(
     v.null(),
-    v.object({ _id: v.id("players"), name: v.string() }),
+    v.object({
+      _id: v.id("players"),
+      name: v.string(),
+      isGuest: v.boolean(),
+      email: v.union(v.string(), v.null()),
+      avatarUrl: v.union(v.string(), v.null()),
+    }),
   ),
   handler: async (ctx) => {
     const player = await currentPlayer(ctx);
-    return player && { _id: player._id, name: player.name };
+    if (!player) return null;
+    const user = player.userId
+      ? await ctx.db.get("users", player.userId)
+      : null;
+    return {
+      _id: player._id,
+      name: player.name,
+      isGuest: user?.provider !== "google",
+      email: user?.email ?? null,
+      avatarUrl: user?.avatarUrl ?? null,
+    };
   },
 });
 
