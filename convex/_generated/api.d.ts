@@ -18,6 +18,7 @@ import type * as lib_botBrain from "../lib/botBrain.js";
 import type * as lib_botSim from "../lib/botSim.js";
 import type * as lib_elo from "../lib/elo.js";
 import type * as lib_engine from "../lib/engine.js";
+import type * as lib_matchAnalytics from "../lib/matchAnalytics.js";
 import type * as lib_matchmaking from "../lib/matchmaking.js";
 import type * as lib_notes from "../lib/notes.js";
 import type * as lib_sudoku_generator from "../lib/sudoku/generator.js";
@@ -53,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   "lib/botSim": typeof lib_botSim;
   "lib/elo": typeof lib_elo;
   "lib/engine": typeof lib_engine;
+  "lib/matchAnalytics": typeof lib_matchAnalytics;
   "lib/matchmaking": typeof lib_matchmaking;
   "lib/notes": typeof lib_notes;
   "lib/sudoku/generator": typeof lib_sudoku_generator;

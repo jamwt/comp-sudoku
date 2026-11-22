@@ -302,6 +302,38 @@ describe("matches", () => {
     const view = await bob.query(api.matches.get, { matchId });
     expect(view?.result).toEqual({ winner: 0, reason: "forfeit_idle" });
   });
+
+  test("records move timestamps and deduction strategies and exposes them once finished", async () => {
+    const t = setup();
+    const { alice, bob, matchId } = await startMatch(t);
+
+    // Move history stays empty while active
+    await alice.mutation(api.matches.enter, { matchId, cell: 0, digit: 5 });
+    const mid = await alice.query(api.matches.get, { matchId });
+    expect(mid?.status).toBe("active");
+    expect(mid?.moves).toEqual([]);
+
+    vi.advanceTimersByTime(1_000);
+    await bob.mutation(api.matches.enter, { matchId, cell: 4, digit: 7 });
+    vi.advanceTimersByTime(1_000);
+    await alice.mutation(api.matches.enter, { matchId, cell: 5, digit: 8 });
+    vi.advanceTimersByTime(1_000);
+    await alice.mutation(api.matches.enter, { matchId, cell: 6, digit: 9 });
+
+    const done = await bob.query(api.matches.get, { matchId });
+    expect(done?.status).toBe("finished");
+    expect(done?.moves).toHaveLength(4);
+    expect(done?.moves.map((m) => [m.slot, m.cell, m.strategy])).toEqual([
+      [0, 0, "fullHouse"],
+      [1, 4, "fullHouse"],
+      [0, 5, "fullHouse"],
+      [0, 6, "fullHouse"],
+    ]);
+    // Timestamps strictly advance and no digit values leak in the move objects
+    expect(done!.moves[0].at).toBeLessThan(done!.moves[1].at);
+    expect(done!.moves[1].at).toBeLessThan(done!.moves[2].at);
+    expect("digit" in done!.moves[0]).toBe(false);
+  });
 });
 
 describe("forfeits", () => {

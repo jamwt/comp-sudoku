@@ -14,6 +14,7 @@ import { slotTone, TONE } from "@/game/colors";
 import { Button } from "@/components/ui/button";
 import { PlayerAvatar } from "@/components/Avatars";
 import { NinepopMark } from "@/components/NinepopLogo";
+import { MatchSummaryCharts } from "@/components/MatchSummaryCharts";
 import { matchPath, navigate } from "@/lib/router";
 import { useNow } from "@/lib/useNow";
 import { cn, formatDuration } from "@/lib/utils";
@@ -1110,7 +1111,7 @@ function ResultOverlay({
       className="fixed inset-0 z-50 flex items-center justify-center bg-background/75 p-4 backdrop-blur-sm"
       data-testid="result"
     >
-      <div className="toy-card relative w-full max-w-sm animate-banner-pop space-y-4 overflow-hidden p-6 shadow-toy-lg">
+      <div className="toy-card relative max-h-[92vh] w-full max-w-md animate-banner-pop space-y-3 overflow-y-auto p-5 shadow-toy-lg">
         {/* Celebratory corner sparkles on win */}
         {youWon && (
           <div
@@ -1173,39 +1174,41 @@ function ResultOverlay({
 
         <RatingChanges match={match} />
 
-        <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
           {match.participants.map((p, i) => {
             const tone = TONE[slotTone(i as Slot, match.you)];
             return (
               <div
                 key={p.playerId}
                 className={cn(
-                  "flex items-center justify-between rounded-xl border-2 border-ink/70 px-3 py-2",
+                  "flex items-center gap-2 rounded-xl border-2 border-ink/70 px-2.5 py-2",
                   tone.softBg,
                 )}
               >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <PlayerAvatar
-                    name={p.name}
-                    isBot={p.bot !== null}
-                    size="sm"
-                  />
-                  <span
+                <PlayerAvatar
+                  name={p.name}
+                  isBot={p.bot !== null}
+                  size="sm"
+                />
+                <div className="min-w-0">
+                  <p
                     className={cn(
-                      "truncate font-display text-sm font-bold",
+                      "truncate font-display text-xs font-bold",
                       tone.text,
                     )}
                   >
                     {p.name}
-                  </span>
+                  </p>
+                  <p className="font-mono text-[11px] font-bold tabular-nums text-foreground">
+                    {p.cells} {p.cells === 1 ? "cell" : "cells"} · {p.wrong}✗
+                  </p>
                 </div>
-                <span className="shrink-0 font-mono text-xs font-bold tabular-nums text-foreground">
-                  {p.cells} {p.cells === 1 ? "cell" : "cells"} · {p.wrong} wrong
-                </span>
               </div>
             );
           })}
         </div>
+
+        <MatchSummaryCharts match={match} />
 
         <div className="flex flex-col gap-2 pt-1">
           {canRematchBot && opponent && (
