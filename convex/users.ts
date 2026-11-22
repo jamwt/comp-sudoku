@@ -13,7 +13,22 @@ const ADJECTIVES = [
   "Brave",
   "Keen",
   "Nimble",
+  "Bright",
+  "Crisp",
+  "Deft",
+  "Eager",
+  "Gentle",
+  "Jolly",
+  "Lively",
+  "Merry",
+  "Plucky",
+  "Quick",
+  "Snappy",
+  "Spry",
+  "Steady",
+  "Witty",
 ];
+
 const ANIMALS = [
   "Otter",
   "Falcon",
@@ -25,20 +40,26 @@ const ANIMALS = [
   "Koala",
   "Raven",
   "Gecko",
+  "Finch",
+  "Ferret",
+  "Crane",
+  "Robin",
+  "Puffin",
+  "Marten",
+  "Wombat",
+  "Osprey",
+  "Marmot",
+  "Quokka",
+  "Toucan",
+  "Alpaca",
+  "Gopher",
+  "Magpie",
 ];
 
-function randomGuestName(): string {
+function randomAnimalName(): string {
   const pick = (words: string[]) =>
     words[Math.floor(Math.random() * words.length)];
   return `${pick(ADJECTIVES)} ${pick(ANIMALS)}`;
-}
-
-function initialPlayerName(profile: { name?: string; email?: string }): string {
-  const fromName = profile.name?.trim();
-  if (fromName && fromName.length > 0) return fromName.slice(0, 24).trim();
-  const fromEmail = profile.email?.split("@")[0]?.trim();
-  if (fromEmail && fromEmail.length > 0) return fromEmail.slice(0, 24).trim();
-  return randomGuestName();
 }
 
 /** Creates the user row and its human player for a new guest account. */
@@ -55,13 +76,17 @@ export const createUser = internalMutation({
     await ctx.db.insert("players", {
       kind: "human",
       userId,
-      name: randomGuestName(),
+      name: randomAnimalName(),
     });
     return userId;
   },
 });
 
-/** Creates the user row and its human player for a new Google account. */
+/**
+ * Creates the user row and its human player for a new Google account.
+ * Public in-game display names default to a random `Adjective Animal` handle
+ * rather than exposing the player's real Google name.
+ */
 export const createUserGoogle = internalMutation({
   args: {
     method: v.object({
@@ -80,13 +105,13 @@ export const createUserGoogle = internalMutation({
     await ctx.db.insert("players", {
       kind: "human",
       userId,
-      name: initialPlayerName(profile),
+      name: randomAnimalName(),
     });
     return userId;
   },
 });
 
-/** Keeps Google profile metadata fresh on returning sign-ins without overwriting a custom nickname. */
+/** Keeps Google profile metadata fresh on returning sign-ins without touching the player's display name or nickname. */
 export const onSignInGoogle = internalMutation({
   args: {
     userId: v.id("users"),

@@ -58,12 +58,15 @@ export default defineSchema({
     /** Set for humans; bots have no auth user. */
     userId: v.optional(v.id("users")),
     name: v.string(),
+    /** Claimed unique lowercase handle (`[a-z][a-z0-9]{4,19}`); Google accounts only. */
+    nickname: v.optional(v.string()),
     /** Starting Elo rating for bots, from `BOTS` in gameConfig. */
     rating: v.optional(v.number()),
     /** Key into `BOTS` in gameConfig; set for bots only. */
     botProfile: v.optional(v.string()),
   })
     .index("by_userId", ["userId"])
+    .index("by_nickname", ["nickname"])
     .index("by_kind_and_rating", ["kind", "rating"]),
 
   puzzles: defineTable({
